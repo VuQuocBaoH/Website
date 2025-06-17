@@ -6,11 +6,15 @@ export interface IOrganizer {
   description?: string;
 }
 
-// Định nghĩa interface cho một mục trong lịch trình
 export interface IScheduleItem {
-  time: string; // Ví dụ: "9:00 AM - 10:00 AM"
-  title: string; // Ví dụ: "Registration & Welcome"
-  description?: string; // Ví dụ: "Check-in and welcome refreshments"
+  time: string; 
+  title: string; 
+  description?: string; 
+}
+
+export interface IPrice {
+  amount: number;
+  currency: 'vnd' | 'usd';
 }
 
 export interface IEvent extends Document {

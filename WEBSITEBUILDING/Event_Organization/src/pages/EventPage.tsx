@@ -21,8 +21,7 @@ import {
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-// Đổi tên interface Notification thành AppNotification
-interface AppNotification { // <-- ĐÃ ĐỔI TÊN Ở ĐÂY
+interface AppNotification {
   id: string;
   message: string;
   date: string;
@@ -40,10 +39,10 @@ const EventPage = () => {
   const [isRegistered, setIsRegistered] = useState(false);
   const [isOrganizer, setIsOrganizer] = useState(false);
 
+  // State dùng để kích hoạt fetch lại dữ liệu
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Hàm để quản lý notifications trong localStorage theo user ID
-  // Các hàm này bây giờ sử dụng AppNotification
+  // Các hàm quản lý notification
   const getNotificationsForUser = (userId: string): AppNotification[] => {
     const stored = localStorage.getItem(`notifications_${userId}`);
     return stored ? JSON.parse(stored) : [];
@@ -55,7 +54,7 @@ const EventPage = () => {
 
   const addNotification = (userId: string, message: string) => {
     const currentNotifs = getNotificationsForUser(userId);
-    const newNotification: AppNotification = { // <-- Dùng AppNotification ở đây
+    const newNotification: AppNotification = {
       id: Date.now().toString(),
       message,
       date: new Date().toLocaleString(),
@@ -63,38 +62,23 @@ const EventPage = () => {
     };
     const updatedNotifs = [newNotification, ...currentNotifs];
     saveNotificationsForUser(userId, updatedNotifs);
-    // Kích hoạt sự kiện tùy chỉnh (Navbar sẽ lắng nghe)
     window.dispatchEvent(new Event('notificationAdded'));
   };
 
-  const checkRegistrationStatus = (eventData: any) => {
-    const userString = localStorage.getItem('user');
-    if (userString && eventData.registeredAttendees) {
-      try {
-        const user = JSON.parse(userString);
-        const isUserRegistered = eventData.registeredAttendees.includes(user.id);
-        setIsRegistered(isUserRegistered);
-      } catch (e) {
-        console.error("Failed to parse user data from localStorage", e);
-        setIsRegistered(false);
-      }
+  const checkRegistrationStatus = (eventData: any, user: any) => {
+    if (user && eventData?.registeredAttendees) {
+      const isUserRegistered = eventData.registeredAttendees.includes(user.id);
+      setIsRegistered(isUserRegistered);
     } else {
       setIsRegistered(false);
     }
   };
 
-  const checkOrganizerStatus = (eventData: any) => {
-    const userString = localStorage.getItem('user');
-    if (userString) {
-      try {
-        const user = JSON.parse(userString);
-        const isUserAdmin = user.role === 'admin';
-        const isUserEventOrganizer = eventData.organizerId && (user.id === eventData.organizerId);
-        setIsOrganizer(isUserAdmin || isUserEventOrganizer);
-      } catch (e) {
-        console.error("Failed to parse user data from localStorage", e);
-        setIsOrganizer(false);
-      }
+  const checkOrganizerStatus = (eventData: any, user: any) => {
+    if (user && eventData) {
+      const isUserAdmin = user.role === 'admin';
+      const isUserEventOrganizer = eventData.organizerId && (user.id === eventData.organizerId);
+      setIsOrganizer(isUserAdmin || isUserEventOrganizer);
     } else {
       setIsOrganizer(false);
     }
@@ -114,30 +98,41 @@ const EventPage = () => {
         const eventRes = await axios.get(`${API_BASE_URL}/events/${id}`);
         const eventData = eventRes.data;
 
-        checkRegistrationStatus(eventData);
-        checkOrganizerStatus(eventData);
+        const userString = localStorage.getItem('user');
+        const user = userString ? JSON.parse(userString) : null;
 
+        checkRegistrationStatus(eventData, user);
+        checkOrganizerStatus(eventData, user);
+
+        const organizerDetails = eventData.organizer ? {
+            name: eventData.organizer.name || 'Unknown Organizer',
+            image: eventData.organizer.image || null,
+            description: eventData.organizer.description || `Event organized by ${eventData.organizer.name}.`
+        } : {
+            name: 'Unknown Organizer',
+            image: null,
+            description: 'Organizer information is not available.'
+        };
+        
         setCurrentEvent({
           id: eventData._id,
           title: eventData.title,
           date: new Date(eventData.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
           time: eventData.time,
           location: eventData.location,
+          address: eventData.address || eventData.location,
           image: eventData.image,
           price: eventData.price || 'Free',
           category: eventData.category,
-          organizer: {
-            name: eventData.organizer.name,
-            image: eventData.organizer.image || null,
-            description: eventData.organizer.description || `Event organized by ${eventData.organizer.name}.`
-          },
+          organizer: organizerDetails,
           organizerId: eventData.organizerId,
           description: eventData.description,
-          longDescription: eventData.longDescription || eventData.description,
-          address: eventData.address || eventData.location,
+          longDescription: eventData.longDescription,
           registeredAttendeesCount: eventData.registeredAttendees ? eventData.registeredAttendees.length : 0,
           registeredAttendees: eventData.registeredAttendees || [],
           capacity: eventData.capacity,
+          // Lấy dữ liệu schedule từ API và truyền xuống
+          schedule: eventData.schedule || [],
         });
 
         const allEventsRes = await axios.get(`${API_BASE_URL}/events`);
@@ -153,70 +148,58 @@ const EventPage = () => {
                 image: event.image,
                 price: event.price,
                 category: event.category,
-                organizer: event.organizer.name
+                organizer: event.organizer?.name || 'Unknown Organizer'
             }));
         setRelatedEvents(related);
 
       } catch (err) {
         console.error('Error fetching event details:', err);
-        setError('Failed to load event details. It might not exist.');
+        setError('Failed to load event details. It might not exist or has been removed.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchEventDetails();
-  }, [id, navigate, refreshKey]);
+  }, [id, refreshKey]); // Lắng nghe `id` và `refreshKey`
+
+  // useEffect này chỉ dùng để xử lý sau khi edit
+  useEffect(() => {
+    if (location.state?.fromEdit) {
+      toast.info("Event details have been refreshed.");
+      // Tăng refreshKey để kích hoạt useEffect trên chạy lại
+      setRefreshKey(prevKey => prevKey + 1);
+      // Xóa state đi để không bị refresh lại khi F5
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
+
 
   const handleRegisterForEvent = async (discountCode?: string) => {
     const token = localStorage.getItem('token');
     const userString = localStorage.getItem('user');
-    let userId: string | undefined;
-
-    if (userString) {
-      try {
-        userId = JSON.parse(userString).id;
-      } catch (e) {
-        console.error("Failed to parse user data from localStorage", e);
-      }
-    }
-
-    if (!token || !userId) {
+    if (!token || !userString) {
       toast.error('You need to be logged in to register for an event.');
       navigate('/signin');
       return;
     }
-
-    if (!currentEvent || !id) {
-        toast.error('Event not found or invalid ID.');
-        return;
-    }
+    const userId = JSON.parse(userString).id;
 
     try {
-    const response = await axios.post(
-      `${API_BASE_URL}/events/${id}/register`,
-      { discountCode },
-      {
-        headers: {
-          'x-auth-token': token,
-        },
-      });
+      const response = await axios.post(
+        `${API_BASE_URL}/events/${id}/register`,
+        { discountCode },
+        { headers: { 'x-auth-token': token } }
+      );
 
       toast.success(response.data.msg || 'Successfully registered for the event!');
-      setIsRegistered(true);
+      
+      // Kích hoạt refresh để lấy lại toàn bộ dữ liệu mới nhất (bao gồm cả danh sách người tham dự)
+      setRefreshKey(prevKey => prevKey + 1);
 
-      setCurrentEvent((prev: any) => ({
-        ...prev,
-        registeredAttendeesCount: (prev.registeredAttendeesCount || 0) + 1,
-        registeredAttendees: [...(prev.registeredAttendees || []), JSON.parse(localStorage.getItem('user') || '{}').id]
-      }));
-
-      // THÊM THÔNG BÁO KHI ĐĂNG KÝ THÀNH CÔNG
       if (userId && currentEvent?.title) {
         addNotification(userId, `Bạn đã đăng ký thành công sự kiện: "${currentEvent.title}"!`);
       }
-
-
     } catch (error: any) {
       console.error('Error registering for event:', error.response?.data || error.message);
       toast.error(error.response?.data?.msg || 'Failed to register for the event.');
@@ -230,17 +213,9 @@ const EventPage = () => {
       navigate('/signin');
       return;
     }
-
-    if (!id) {
-        toast.error('Event ID is missing.');
-        return;
-    }
-
     try {
       await axios.delete(`${API_BASE_URL}/events/${id}`, {
-        headers: {
-          'x-auth-token': token,
-        },
+        headers: { 'x-auth-token': token },
       });
       toast.success('Event deleted successfully!');
       navigate('/events');
@@ -252,27 +227,17 @@ const EventPage = () => {
 
   const handleEditEvent = () => {
     if (id) {
-      navigate(`/edit-event/${id}`, { state: { fromEdit: true } });
+      navigate(`/edit-event/${id}`);
     }
   };
-
-  useEffect(() => {
-    const locationState = location.state as any;
-    if (locationState && locationState.fromEdit) {
-      setRefreshKey(prevKey => prevKey + 1);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, [location.state]);
-
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading event details...</div>;
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
 
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gray-50/50">
       <Navbar />
-
       <main className="flex-grow">
         {currentEvent ? (
           <>
@@ -280,15 +245,11 @@ const EventPage = () => {
                 {...currentEvent}
                 onRegister={handleRegisterForEvent}
                 isRegistered={isRegistered}
-                registeredAttendees={currentEvent.registeredAttendees}
-                registeredAttendeesCount={currentEvent.registeredAttendeesCount}
-                capacity={currentEvent.capacity}
                 isOrganizer={isOrganizer}
             />
 
-            {/* Các nút Chỉnh sửa/Xóa */}
             {isOrganizer && (
-              <div className="container mx-auto px-4 py-4 flex justify-end gap-4">
+              <div className="container mx-auto px-4 py-4 flex justify-end gap-4 border-t">
                 <Button variant="outline" onClick={handleEditEvent}>
                   Chỉnh sửa sự kiện
                 </Button>
@@ -298,15 +259,15 @@ const EventPage = () => {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Bạn có chắc chắn muốn xóa sự kiện này?</AlertDialogTitle>
+                      <AlertDialogTitle>Are you sure you want to delete this event?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Hành động này không thể hoàn tác. Sự kiện sẽ bị xóa vĩnh viễn khỏi hệ thống.
+                        This action cannot be undone. This will permanently delete the event from the system.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Hủy</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteEvent} className="bg-red-500 hover:bg-red-600">
-                        Xóa
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">
+                        Delete
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -314,12 +275,11 @@ const EventPage = () => {
               </div>
             )}
 
-            {/* Phần "Similar Events You May Like" */}
             {relatedEvents.length > 0 && (
-                <section className="py-12 bg-gray-50">
+                <section className="py-12 bg-white border-t">
                 <div className="container mx-auto px-4">
                     <h2 className="text-2xl font-bold text-gray-900 mb-8">Similar Events You May Like</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                     {relatedEvents.map((event) => (
                         <EventCard key={event.id} {...event} />
                     ))}
@@ -330,8 +290,9 @@ const EventPage = () => {
           </>
         ) : (
           <div className="container mx-auto px-4 py-16 text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Event not found</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Event Not Found</h2>
             <p className="text-gray-600 mb-8">The event you're looking for doesn't exist or has been removed.</p>
+            <Button onClick={() => navigate('/events')}>Back to Events</Button>
           </div>
         )}
       </main>

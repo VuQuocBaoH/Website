@@ -8,20 +8,21 @@ import {
   registerForEvent,
   unregisterFromEvent,
   getFeaturedEvents,
-  getUpcomingEvents
+  getUpcomingEvents,
+  getMyEvents,
+  getEventsByOrganizer,
 } from '../controllers/eventController';
-import authMiddleware from '../middleware/authMiddleware'; // Import authentication middleware (sẽ tạo sau)
+import authMiddleware from '../middleware/authMiddleware'; 
 
 const router = Router();
 
-// Public routes
 router.get('/', getEvents);
-router.get('/featured', getFeaturedEvents); // For Index.tsx
-router.get('/upcoming', getUpcomingEvents); // For Index.tsx
+router.get('/featured', getFeaturedEvents);
+router.get('/upcoming', getUpcomingEvents);
+router.get('/my-events', authMiddleware, getMyEvents); 
+router.get('/organizer/:organizerId', getEventsByOrganizer);
 router.get('/:id', getEventById);
-
-// Private routes (cần xác thực JWT)
-router.post('/', authMiddleware, createEvent); // authMiddleware sẽ bảo vệ route này
+router.post('/', authMiddleware, createEvent);
 router.put('/:id', authMiddleware, updateEvent);
 router.delete('/:id', authMiddleware, deleteEvent);
 router.post('/:id/register', authMiddleware, registerForEvent);

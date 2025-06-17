@@ -1,9 +1,6 @@
-// D:\code\DACNTT2\event-backend\src\controllers\userController.ts
-
 import { Request, Response, RequestHandler } from 'express';
 import User, { IUser } from '../models/User';
 import mongoose from 'mongoose';
-
 // @route   GET /api/users/details
 // @desc    Get details of multiple users by IDs (for organizers/admins)
 // @access  Private (only accessible by authenticated users, role check will be done by caller)
@@ -89,6 +86,27 @@ export const updateCurrentUserProfile: RequestHandler = async (req, res): Promis
     res.json({ msg: 'Profile updated successfully', user: { id: user.id, username: user.username, email: user.email, role: user.role } });
   } catch (err: any) {
     console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
+export const getUserPublicProfile: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const user = await User.findById(req.params.userId).select('-password -email');
+
+    if (!user) {
+      res.status(404).json({ msg: 'User not found' });
+      return; 
+    }
+
+    res.json(user);
+    
+  } catch (err: any) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+        res.status(404).json({ msg: 'User not found' });
+        return; 
+    }
     res.status(500).send('Server Error');
   }
 };

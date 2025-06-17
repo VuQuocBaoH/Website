@@ -3,6 +3,7 @@ import Event, { IEvent } from '../models/Event';
 import User from '../models/User'; // Import User model để quản lý registeredAttendees
 import mongoose from 'mongoose'; // Để sử dụng mongoose.Types.ObjectId
 import DiscountCode from '../models/DiscountCode';
+import Stripe from 'stripe';
 
 // @route   POST /api/events
 // @desc    Create a new event
@@ -190,10 +191,13 @@ export const getEventById: RequestHandler = async (req, res): Promise<void> => {
 // @route   PUT /api/events/:id
 // @desc    Update an event
 // @access  Private (Chỉ người tổ chức sự kiện hoặc admin)
+// @route   PUT /api/events/:id
+// @desc    Update an event
+// @access  Private (Chỉ người tổ chức sự kiện hoặc admin)
 export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
   try {
     const userId = req.user?.id;
-    const userRole = req.user?.role; // Lấy role từ token
+    const userRole = req.user?.role;
     if (!userId) {
       res.status(401).json({ msg: 'User not authenticated' });
       return;
@@ -205,7 +209,6 @@ export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
       return;
     }
 
-    // KIỂM TRA QUYỀN: Chỉ người tạo sự kiện HOẶC admin mới được sửa
     if (event.organizerId.toString() !== userId && userRole !== 'admin') {
       res.status(403).json({ msg: 'Not authorized to update this event' });
       return;
@@ -227,16 +230,16 @@ export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
         price,
         category,
         description,
-        longDescription,
+        longDescription: longDescription || description || event.longDescription,
         capacity: capacity ? parseInt(capacity) : undefined,
         isFeatured,
         isUpcoming,
-        status
+        status,
+        schedule
     };
 
-    // Nếu organizerName/Image/Description được gửi, cập nhật organizer object
     if (organizerName || organizerImage || organizerDescription) {
-        (updatedEventData as any).organizer = { // Ép kiểu tạm thời để thêm organizer object
+        (updatedEventData as any).organizer = {
             name: organizerName || event.organizer.name,
             image: organizerImage || event.organizer.image,
             description: organizerDescription || event.organizer.description
@@ -336,7 +339,7 @@ export const registerForEvent: RequestHandler = async (req, res): Promise<void> 
         return;
     }
 
-    let finalPrice = parseFloat(event.price.replace('$', '')); // Chuyển giá string thành số
+    let finalPrice = parseFloat(event.price.replace('$', '')); 
     let appliedDiscount = null;
 
     if (discountCode && discountCode.trim() !== '' && event.price !== 'Free') {
@@ -424,3 +427,48 @@ export const unregisterFromEvent: RequestHandler = async (req, res): Promise<voi
       res.status(500).send('Server Error');
     }
   };
+
+// @route   GET /api/events/my-events
+// @desc    Get all events created by the logged-in user
+// @access  Private
+export const getMyEvents: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ msg: 'User not authenticated' });
+      return;
+    }
+
+    // Tìm tất cả các sự kiện có organizerId khớp với ID của người dùng đang đăng nhập
+    const myEvents = await Event.find({ organizerId: userId }).sort({ date: -1 }); // Sắp xếp theo ngày gần nhất
+
+    if (!myEvents) {
+        res.status(404).json({ msg: 'No events found for this user.' });
+        return;
+    }
+
+    res.json(myEvents);
+
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
+export const getEventsByOrganizer: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const organizerId = req.params.organizerId;
+
+    const events = await Event.find({ organizerId: organizerId }).sort({ date: -1 });
+
+    res.json(events);
+
+  } catch (err: any) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+        res.status(404).json({ msg: 'Organizer not found' });
+        return; // Bạn có thể giữ lại return; không có giá trị để thoát khỏi hàm sớm
+    }
+    res.status(500).send('Server Error');
+  }
+};

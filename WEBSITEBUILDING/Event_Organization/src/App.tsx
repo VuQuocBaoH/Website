@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 import EditEvent from "./pages/EditEvent";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProfilePage from "./pages/ProfilePage";
+import OrganizerProfilePage from './pages/OrganizerProfilePage';
 
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="/edit-event/:id" element={<EditEvent />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/organizers/:organizerId" element={<OrganizerProfilePage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
