@@ -1,3 +1,4 @@
+// EventPage.tsx
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
@@ -103,11 +104,11 @@ const EventPage = () => {
 
         checkRegistrationStatus(eventData, user);
         checkOrganizerStatus(eventData, user);
-
+        
         const organizerDetails = eventData.organizer ? {
             name: eventData.organizer.name || 'Unknown Organizer',
             image: eventData.organizer.image || null,
-            description: eventData.organizer.description || `Event organized by ${eventData.organizer.name}.`
+            description: eventData.organizer.description || `Sự kiện tổ chức bởi ${eventData.organizer.name}.`
         } : {
             name: 'Unknown Organizer',
             image: null,
@@ -122,7 +123,12 @@ const EventPage = () => {
           location: eventData.location,
           address: eventData.address || eventData.location,
           image: eventData.image,
-          price: eventData.price || 'Free',
+          // Đảm bảo truyền isFree từ backend xuống frontend
+          isFree: eventData.isFree, 
+          // Format giá cho hiển thị. Backend sẽ xử lý price object.
+          price: eventData.isFree
+            ? 'Free'
+            : `${eventData.price?.amount?.toLocaleString()} ${eventData.price?.currency?.toUpperCase()}`,
           category: eventData.category,
           organizer: organizerDetails,
           organizerId: eventData.organizerId,
@@ -131,7 +137,6 @@ const EventPage = () => {
           registeredAttendeesCount: eventData.registeredAttendees ? eventData.registeredAttendees.length : 0,
           registeredAttendees: eventData.registeredAttendees || [],
           capacity: eventData.capacity,
-          // Lấy dữ liệu schedule từ API và truyền xuống
           schedule: eventData.schedule || [],
         });
 
@@ -146,7 +151,7 @@ const EventPage = () => {
                 time: event.time,
                 location: event.location,
                 image: event.image,
-                price: event.price,
+                price: event.isFree ? 'Free' : `${event.price?.amount?.toLocaleString()} ${event.price?.currency?.toUpperCase()}`, // Cập nhật cách lấy price cho EventCard
                 category: event.category,
                 organizer: event.organizer?.name || 'Unknown Organizer'
             }));
@@ -161,15 +166,12 @@ const EventPage = () => {
     };
 
     fetchEventDetails();
-  }, [id, refreshKey]); // Lắng nghe `id` và `refreshKey`
+  }, [id, refreshKey]);
 
-  // useEffect này chỉ dùng để xử lý sau khi edit
   useEffect(() => {
     if (location.state?.fromEdit) {
       toast.info("Event details have been refreshed.");
-      // Tăng refreshKey để kích hoạt useEffect trên chạy lại
       setRefreshKey(prevKey => prevKey + 1);
-      // Xóa state đi để không bị refresh lại khi F5
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state, navigate, location.pathname]);
@@ -186,23 +188,37 @@ const EventPage = () => {
     const userId = JSON.parse(userString).id;
 
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/events/${id}/register`,
-        { discountCode },
-        { headers: { 'x-auth-token': token } }
-      );
-
-      toast.success(response.data.msg || 'Successfully registered for the event!');
+      let response;
+      // Dựa vào thuộc tính `isFree` của `currentEvent` để quyết định API gọi
+      if (currentEvent.isFree) { 
+        // Gọi API đăng ký sự kiện miễn phí
+        response = await axios.post(
+          `${API_BASE_URL}/events/${id}/register`,
+          { discountCode }, // discountCode (nếu có)
+          { headers: { 'x-auth-token': token } }
+        );
+        toast.success(response.data.msg || 'Successfully registered for the free event!');
+      } else {
+        // Gọi API mua vé sự kiện có phí (giả lập thanh toán)
+        response = await axios.post(
+          `${API_BASE_URL}/events/${id}/purchase-ticket`,
+          { discountCode }, // discountCode (nếu có)
+          { headers: { 'x-auth-token': token } }
+        );
+        toast.success(response.data.msg || 'Ticket purchase initiated!');
+        // Trong thực tế, bạn có thể kiểm tra response.data.redirectUrl và chuyển hướng tại đây
+      }
       
-      // Kích hoạt refresh để lấy lại toàn bộ dữ liệu mới nhất (bao gồm cả danh sách người tham dự)
+      // Cập nhật lại dữ liệu event sau khi đăng ký/mua vé thành công
       setRefreshKey(prevKey => prevKey + 1);
 
+      // Thêm thông báo
       if (userId && currentEvent?.title) {
-        addNotification(userId, `Bạn đã đăng ký thành công sự kiện: "${currentEvent.title}"!`);
+        addNotification(userId, `Bạn đã ${currentEvent.isFree ? 'đăng ký' : 'mua vé'} thành công sự kiện: "${currentEvent.title}"!`);
       }
     } catch (error: any) {
-      console.error('Error registering for event:', error.response?.data || error.message);
-      toast.error(error.response?.data?.msg || 'Failed to register for the event.');
+      console.error('Error during event registration/purchase:', error.response?.data || error.message);
+      toast.error(error.response?.data?.msg || 'Failed to complete action.');
     }
   };
 
@@ -231,7 +247,7 @@ const EventPage = () => {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading event details...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải thông tin sự kiện...</div>;
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
 
 
@@ -259,15 +275,15 @@ const EventPage = () => {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure you want to delete this event?</AlertDialogTitle>
+                      <AlertDialogTitle>Bạn có chắc chắn muốn xóa sự kiện này không?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the event from the system.
+                        Hành động này không thể hoàn tác, sự kiện sẽ bị xóa vĩnh viễn khỏi hệ thống.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>Hủy</AlertDialogCancel>
                       <AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">
-                        Delete
+                        Xóa
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -278,7 +294,7 @@ const EventPage = () => {
             {relatedEvents.length > 0 && (
                 <section className="py-12 bg-white border-t">
                 <div className="container mx-auto px-4">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-8">Similar Events You May Like</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-8">Sự kiện bạn có thể thích</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                     {relatedEvents.map((event) => (
                         <EventCard key={event.id} {...event} />
@@ -290,9 +306,9 @@ const EventPage = () => {
           </>
         ) : (
           <div className="container mx-auto px-4 py-16 text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Event Not Found</h2>
-            <p className="text-gray-600 mb-8">The event you're looking for doesn't exist or has been removed.</p>
-            <Button onClick={() => navigate('/events')}>Back to Events</Button>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Không tìm thấy sự kiện</h2>
+            <p className="text-gray-600 mb-8">Sự kiện bạn tìm kiếm có thể không tồn tại hoặc đã bị xóa.</p>
+            <Button onClick={() => navigate('/events')}>Trở về trang sự kiện</Button>
           </div>
         )}
       </main>

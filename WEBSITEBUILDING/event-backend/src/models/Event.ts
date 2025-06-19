@@ -7,9 +7,9 @@ export interface IOrganizer {
 }
 
 export interface IScheduleItem {
-  time: string; 
-  title: string; 
-  description?: string; 
+  time: string;
+  title: string;
+  description?: string;
 }
 
 export interface IPrice {
@@ -24,7 +24,8 @@ export interface IEvent extends Document {
   location: string;
   address?: string;
   image: string;
-  price: string;
+  isFree: boolean;
+  price?: IPrice;
   category: string;
   organizer: IOrganizer;
   organizerId: mongoose.Types.ObjectId;
@@ -32,115 +33,60 @@ export interface IEvent extends Document {
   longDescription?: string;
   capacity?: number;
   registeredAttendees: mongoose.Types.ObjectId[];
-  isFeatured?: boolean;
-  isUpcoming?: boolean;
+  tickets: mongoose.Types.ObjectId[];
   status: 'active' | 'cancelled' | 'completed';
-  schedule?: IScheduleItem[]; // <-- THÊM TRƯỜNG NÀY CHO LỊCH TRÌNH
-  createdAt: Date;
-  updatedAt: Date;
+  schedule?: IScheduleItem[];
 }
 
-const EventSchema: Schema = new Schema({
-  title: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  date: {
-    type: Date,
-    required: true,
-  },
-  time: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  location: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  address: {
-    type: String,
-    trim: true,
-  },
-  image: {
-    type: String,
-    required: true,
-  },
-  price: {
-    type: String,
-    default: 'Free',
-    trim: true,
-  },
-  category: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  organizer: {
-    name: { type: String, required: true },
-    image: { type: String },
-    description: { type: String },
-  },
-  organizerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-  description: {
-    type: String,
-    required: true,
-  },
-  longDescription: {
-    type: String,
-  },
-  capacity: {
+const priceSchema = new mongoose.Schema({
+  amount: {
     type: Number,
+    required: true,
   },
-  registeredAttendees: {
-    type: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
-    default: [],
-  },
-  isFeatured: {
-    type: Boolean,
-    default: false,
-  },
-  isUpcoming: {
-    type: Boolean,
-    default: false,
-  },
-  status: {
+  currency: {
     type: String,
-    enum: ['active', 'cancelled', 'completed'],
-    default: 'active',
+    enum: ['vnd', 'usd'],
+    required: true,
   },
-  schedule: [ // <-- THÊM TRƯỜNG NÀY CHO LỊCH TRÌNH (Array of Objects)
+}, { _id: false });
+
+const eventSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  date: { type: Date, required: true },
+  time: { type: String, required: true },
+  location: { type: String, required: true },
+  category: { type: String, required: true },
+  image: { type: String },
+  description: { type: String, required: true },
+  longDescription: { type: String },
+  capacity: { type: Number },
+  isFree: { type: Boolean, default: true },
+  price: {
+    type: priceSchema,
+    required: function (this: IEvent) {
+      return this.isFree === false;
+    },
+  },
+  organizerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  organizer: {
+    name: String,
+    description: String,
+  },
+  schedule: [
     {
-      time: { type: String, required: true },
-      title: { type: String, required: true },
-      description: { type: String },
+      time: String,
+      title: String,
+      description: String,
     },
   ],
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
+  registeredAttendees: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  tickets: [{ type: mongoose.Schema.Types.ObjectId, ref: "Ticket" }],
+  isFeatured: { type: Boolean, default: false },
+  isUpcoming: { type: Boolean, default: false },
+  status: { type: String, default: "active" },
+}, {
+  timestamps: true,
 });
 
-EventSchema.pre('save', function (next) {
-  this.updatedAt = new Date();
-  next();
-});
-
-const Event = mongoose.model<IEvent>('Event', EventSchema);
+const Event = mongoose.model<IEvent>('Event', eventSchema);
 export default Event;

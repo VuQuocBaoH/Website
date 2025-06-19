@@ -49,9 +49,9 @@ import { Link, useNavigate } from 'react-router-dom'; // Import useNavigate
         <section className="py-12 bg-gray-50">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Explore by Category</h2>
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Khám phá sự kiện</h2>
               <p className="text-gray-600 max-w-2xl mx-auto">
-                Find the perfect events based on your interests and passions
+                Tìm kiếm sự kiện dựa trên sở thích và đam mê của bạn
               </p>
             </div>
 

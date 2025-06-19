@@ -155,7 +155,7 @@ const EventDetail = ({
                   </div>
                 )}
                 <div>
-                  <p className="text-sm text-gray-500">Organized by</p>
+                  <p className="text-sm text-gray-500">Tổ chức bởi</p>
                   <p className="font-medium">{organizer.name}</p>
                 </div>
               </div>
@@ -174,23 +174,23 @@ const EventDetail = ({
           {/* Tabs */}
           <Tabs defaultValue="about">
             <TabsList className={`grid w-full mb-8 ${isOrganizer ? 'grid-cols-4' : 'grid-cols-3'}`}>
-              <TabsTrigger value="about">About</TabsTrigger>
-              <TabsTrigger value="schedule">Schedule</TabsTrigger>
-              <TabsTrigger value="organizer">Organizer</TabsTrigger>
+              <TabsTrigger value="about">Thông tin</TabsTrigger>
+              <TabsTrigger value="schedule">Các mốc sự kiện</TabsTrigger>
+              <TabsTrigger value="organizer">Ban tổ chức</TabsTrigger>
               {isOrganizer && (
-                <TabsTrigger value="attendees">Attendees ({registeredAttendeesCount})</TabsTrigger>
+                <TabsTrigger value="attendees">Người đăng kí({registeredAttendeesCount})</TabsTrigger>
               )}
             </TabsList>
 
             <TabsContent value="about" className="space-y-6">
               <div className="prose max-w-none">
-                <h3 className="text-xl font-semibold mb-4">About this event</h3>
+                <h3 className="text-xl font-semibold mb-4">Thông báo</h3>
                 <p className="text-gray-700 whitespace-pre-wrap">{longDescription || description}</p>
               </div>
             </TabsContent>
 
             <TabsContent value="schedule" className="space-y-6">
-              <h3 className="text-xl font-semibold mb-4">Event Schedule</h3>
+              <h3 className="text-xl font-semibold mb-4">Thời gian các hoạt động</h3>
               {schedule && schedule.length > 0 ? (
                 <div className="border-l-2 border-event-purple pl-6 space-y-8">
                   {schedule.map((item, index) => (
@@ -208,7 +208,7 @@ const EventDetail = ({
                 </div>
               ) : (
                 <div className="text-center py-8 px-4 bg-gray-50 rounded-lg">
-                  <p className="text-gray-600">No schedule has been announced for this event yet.</p>
+                  <p className="text-gray-600">Tạm thời chưa có mốc thời gian cho sự kiện</p>
                 </div>
               )}
             </TabsContent>
@@ -231,13 +231,13 @@ const EventDetail = ({
                       )}
                       <div>
                         <h3 className="font-semibold text-lg">{organizer.name}</h3>
-                        <p className="text-sm text-gray-500">Event Organizer</p>
+                        <p className="text-sm text-gray-500">Người tổ chức</p>
                       </div>
                     </div>
                     <p className="text-gray-700">{organizer.description || `Meet ${organizer.name}, the organizer of this event.`}</p>
                     <Link to={`/organizers/${organizerId}`}>
                         <Button variant="outline" className="mt-4">
-                            View Profile
+                            Xem hồ sơ
                             <ChevronRight className="ml-2 h-4 w-4" />
                         </Button>
                     </Link>
@@ -248,9 +248,9 @@ const EventDetail = ({
 
             {isOrganizer && (
               <TabsContent value="attendees">
-                <h3 className="text-xl font-semibold mb-4">Registered Attendees</h3>
+                <h3 className="text-xl font-semibold mb-4">Người đăng kí</h3>
                 {fetchingAttendees ? (
-                  <p>Loading attendees...</p>
+                  <p>Đang tải...</p>
                 ) : attendeesError ? (
                   <p className="text-red-500">{attendeesError}</p>
                 ) : attendeesDetails.length > 0 ? (
@@ -269,7 +269,7 @@ const EventDetail = ({
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-gray-600">No attendees registered yet.</p>
+                  <p className="text-gray-600">Chưa có người đăng kí.</p>
                 )}
               </TabsContent>
             )}
@@ -282,9 +282,9 @@ const EventDetail = ({
             <div className="mb-6 pb-6 border-b border-gray-100">
               <div className="flex justify-between items-center mb-4">
                 <div>
-                  <p className="text-sm text-gray-500">Price</p>
+                  <p className="text-sm text-gray-500">Giá tiền</p>
                   <p className="text-xl font-semibold">
-                    {price === 'Free' ? 'Free' : `$${price}`}
+                    {price === 'Free' ? 'Free' : `${price}`}
                   </p>
                 </div>
                 <div className="flex space-x-2">
@@ -339,20 +339,20 @@ const EventDetail = ({
             </div>
 
             <div className="space-y-4">
-              <h3 className="font-semibold">Event Information</h3>
+              <h3 className="font-semibold">Thông tin sự kiện</h3>
               <div className="flex items-start space-x-3">
                 <Users className="h-5 w-5 text-gray-500 mt-0.5" />
                 <div>
-                  <p className="font-medium">Attendees</p>
+                  <p className="font-medium">Số lượng đăng kí</p>
                   <p className="text-sm text-gray-600">
-                    {registeredAttendeesCount} đã đăng ký {capacity ? ` / ${capacity} chỗ` : ""}
+                    {registeredAttendeesCount} người đã đăng ký {capacity ? ` / ${capacity} người` : ""}
                   </p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
                 <Calendar className="h-5 w-5 text-gray-500 mt-0.5" />
                 <div>
-                  <p className="font-medium">Date and Time</p>
+                  <p className="font-medium">Thời gian</p>
                   <p className="text-sm text-gray-600">{date}</p>
                   <p className="text-sm text-gray-600">{time}</p>
                 </div>
@@ -360,7 +360,7 @@ const EventDetail = ({
               <div className="flex items-start space-x-3">
                 <MapPin className="h-5 w-5 text-gray-500 mt-0.5" />
                 <div>
-                  <p className="font-medium">Location</p>
+                  <p className="font-medium">Địa điểm</p>
                   <p className="text-sm text-gray-600">{location}</p>
                   <p className="text-sm text-gray-600">{address}</p>
                 </div>
@@ -368,9 +368,9 @@ const EventDetail = ({
               <div className="bg-amber-50 border border-amber-200 rounded-md p-4 flex items-start space-x-3">
                 <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
                 <div>
-                  <p className="font-medium text-amber-800">Refund Policy</p>
+                  <p className="font-medium text-amber-800">Chính sách hoàn trả</p>
                   <p className="text-sm text-amber-700">
-                    Refunds available up to 7 days before the event.
+                    Hoàn trả trong vòng 7 ngày trước khi diễn ra sự kiện.
                   </p>
                 </div>
               </div>

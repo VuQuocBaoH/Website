@@ -32,11 +32,11 @@ import { useState } from 'react';
           <div className="container mx-auto px-4 py-16 md:py-24 relative z-10">
             <div className="max-w-3xl mx-auto text-center">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 animate-fade-in">
-                Find and Create Amazing Events
+                Nơi tìm kiếm và tạo các sự kiện thú vị của riêng bạn
               </h1>
 
               <p className="text-xl md:text-2xl mb-8 opacity-90 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-                Discover events that match your passions or host your own with our powerful platform.
+                Khám phá các sự kiện phù hợp với sở thích của bạn hoặc tự tổ chức sự kiện với nền tảng mạnh mẽ của chúng tôi.
               </p>
 
               <div className="flex flex-col sm:flex-row justify-center items-center gap-4 animate-fade-in" style={{ animationDelay: '0.2s' }}>
@@ -44,7 +44,7 @@ import { useState } from 'react';
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                   <input
                     type="text"
-                    placeholder="Search for events, locations, or categories"
+                    placeholder="Tìm sự kiện"
                     className="pl-12 pr-4 py-3 rounded-full w-full text-black focus:outline-none focus:ring-2 focus:ring-white/30"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -56,11 +56,11 @@ import { useState } from 'react';
                   size="lg"
                   onClick={handleSearch}
                 >
-                  Search Events
+                  Tìm kiếm
                 </Button>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-white border-opacity-20 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 text-center animate-fade-in" style={{ animationDelay: '0.3s' }}>
+              {/* <div className="mt-8 pt-6 border-t border-white border-opacity-20 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 text-center animate-fade-in" style={{ animationDelay: '0.3s' }}>
                 <div>
                   <div className="text-3xl font-bold">5000+</div>
                   <div className="text-sm opacity-80">Events</div>
@@ -77,7 +77,7 @@ import { useState } from 'react';
                   <div className="text-3xl font-bold">10K+</div>
                   <div className="text-sm opacity-80">Organizers</div>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

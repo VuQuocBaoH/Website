@@ -1,52 +1,74 @@
 import { Request, Response, RequestHandler } from 'express';
 import Event, { IEvent } from '../models/Event';
-import User from '../models/User'; // Import User model để quản lý registeredAttendees
-import mongoose from 'mongoose'; // Để sử dụng mongoose.Types.ObjectId
-import DiscountCode from '../models/DiscountCode';
-import Stripe from 'stripe';
+import User from '../models/User';
+import mongoose from 'mongoose';
+import Ticket, { ITicket } from '../models/Ticket';
+// import DiscountCode from '../models/DiscountCode';
+import { v4 as uuidv4 } from 'uuid'; // Để tạo mã vé duy nhất
+import QRCode from 'qrcode'; // Để tạo QR code
+import nodemailer from 'nodemailer'; // Để gửi email
+import dotenv from 'dotenv'; // Đảm bảo đã import và gọi dotenv.config()
+dotenv.config();
 
 // @route   POST /api/events
 // @desc    Create a new event
-// @access  Private (Chỉ người dùng đã đăng nhập mới tạo được sự kiện)
-export const createEvent: RequestHandler = async (req, res): Promise<void> => {
+export const createEvent = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id; // Lấy ID người dùng từ token
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ msg: 'User not authenticated' });
       return;
     }
 
     const {
-      title, date, time, location, address, image, price, category,
-      description, longDescription, capacity, organizerName, organizerImage, organizerDescription,
-      schedule 
+      title, date, time, location, address, image, price, isFree, category,
+      description, longDescription, capacity, organizerName, schedule
     } = req.body;
 
-    const eventDate = new Date(date);
+    if (isFree) { 
+      req.body.isFree = true;
+      req.body.price = undefined; 
+    } else { 
+      if (
+        !price ||
+        typeof price.amount !== 'number' ||
+        typeof price.currency !== 'string' ||
+        !['vnd', 'usd'].includes(price.currency.toLowerCase())
+      ) {
+        res.status(400).json({ msg: 'Giá vé không hợp lệ.' });
+        return;
+      }
+      req.body.isFree = false;
+      req.body.price = { 
+        amount: price.amount,
+        currency: price.currency.toLowerCase(),
+      };
+    }
 
-    const organizer = {
-        name: organizerName || 'Unknown Organizer',
-        image: organizerImage,
-        description: organizerDescription
-    };
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ msg: 'User not found' });
+      return;
+    }
 
     const newEvent = new Event({
       title,
-      date: eventDate,
+      date: new Date(date),
       time,
       location,
       address,
       image,
-      price: price || 'Free',
+      isFree: req.body.isFree,
+      price: req.body.price,
       category,
-      organizer,
-      organizerId: new mongoose.Types.ObjectId(userId), // <-- LƯU ID CỦA NGƯỜI TẠO
+      organizer: { name: organizerName || user.username },
+      organizerId: new mongoose.Types.ObjectId(userId),
       description,
       longDescription: longDescription || description,
       capacity: capacity ? parseInt(capacity) : undefined,
       status: 'active',
-      schedule: schedule || []
-    }) as IEvent;
+      schedule: schedule || [],
+    });
 
     await newEvent.save();
     res.status(201).json(newEvent);
@@ -55,16 +77,312 @@ export const createEvent: RequestHandler = async (req, res): Promise<void> => {
     res.status(500).send('Server Error');
   }
 };
+// export const createEvent = async (req: Request, res: Response): Promise<void> => {
+//   try {
+//     const userId = req.user?.id;
+//     if (!userId) {
+//       res.status(401).json({ msg: 'User not authenticated' });
+//       return;
+//     }
+
+//     const {
+//       title, date, time, location, address, image, price, isFree, category,
+//       description, longDescription, capacity, organizerName,
+//       schedule
+//     } = req.body;
+
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       res.status(404).json({ msg: 'User not found' });
+//       return;
+//     }
+
+//     const newEventData: Partial<IEvent> = {
+//       title,
+//       date: new Date(date),
+//       time,
+//       location,
+//       address,
+//       image,
+//       isFree,
+//       category,
+//       organizer: { name: organizerName || user.username },
+//       organizerId: new mongoose.Types.ObjectId(userId),
+//       description,
+//       longDescription: longDescription || description,
+//       capacity: capacity ? parseInt(capacity) : undefined,
+//       status: 'active',
+//       schedule: schedule || []
+//     };
+
+//     if (isFree === false && price) {
+//       const amount = Number(price.amount);
+//       const currency = price.currency;
+
+//       if (
+//         isNaN(amount) ||
+//         typeof amount !== 'number' ||
+//         !currency ||
+//         typeof currency !== 'string' ||
+//         !['vnd', 'usd'].includes(currency)
+//       ) {
+//         res.status(400).json({ msg: 'Giá vé không hợp lệ.' });
+//         return;
+//       }
+
+//       newEventData.price = {
+//         amount,
+//         currency: price.currency as 'vnd' | 'usd'
+//       };
+//     } else {
+//       newEventData.isFree = true;
+//       newEventData.price = undefined;
+//     }
+
+//     console.log("newEventData gửi vào:", newEventData);
+
+//     const newEvent = new Event(newEventData);
+//     await newEvent.save();
+//     res.status(201).json(newEvent);
+//   } catch (err: any) {
+//     console.error("Lỗi khi tạo sự kiện:", err);
+//     res.status(500).send('Server Error');
+//   }
+// };
+
+// @route   PUT /api/events/:id
+// @desc    Update an event
+// export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
+//   try {
+//     const userId = req.user?.id;
+//     const userRole = req.user?.role;
+//     const event = await Event.findById(req.params.id);
+
+//     if (!event) {
+//       res.status(404).json({ msg: 'Event not found' });
+//       return;
+//     }
+
+//     if (event.organizerId.toString() !== userId && userRole !== 'admin') {
+//       res.status(403).json({ msg: 'Not authorized to update this event' });
+//       return;
+//     }
+
+//     const {
+//         title, date, time, location, address, image, price, isFree, category,
+//         description, longDescription, capacity, status, schedule
+//     } = req.body;
+    
+//     event.title = title || event.title;
+//     event.date = date ? new Date(date) : event.date;
+//     event.time = time || event.time;
+//     event.location = location || event.location;
+//     event.address = address || event.address;
+//     event.image = image || event.image;
+//     event.category = category || event.category;
+//     event.description = description || event.description;
+//     event.longDescription = longDescription || description || event.longDescription;
+//     event.capacity = capacity ? parseInt(capacity, 10) : event.capacity;
+//     event.status = status || event.status;
+//     event.schedule = schedule || event.schedule;
+//     event.isFree = isFree;
+
+//     if (isFree === false && price) {
+//         event.price = {
+//             amount: Number(price.amount),
+//             currency: price.currency,
+//         };
+//     } else {
+//         event.isFree = true;
+//         event.price = undefined;
+//     }
+
+//     const updatedEvent = await event.save();
+//     res.json(updatedEvent);
+
+//   } catch (err: any) {
+//     console.error(err.message);
+//     if (err.kind === 'ObjectId') {
+//       res.status(404).json({ msg: 'Event not found (Invalid ID)' });
+//       return;
+//     }
+//     res.status(500).send('Server Error');
+//   }
+// };
+
+export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    // Tìm sự kiện. Sử dụng any tạm thời cho đến khi chúng ta chắc chắn về kiểu Document Mongoose
+    // Đây là cách giải quyết nhanh nhất cho lỗi TypeScript hiện tại của bạn.
+    // Cách lý tưởng hơn là định nghĩa đúng kiểu Mongoose Document cho IEvent.
+    let event: any = await Event.findById(req.params.id);
+
+    if (!event) {
+      res.status(404).json({ msg: 'Event not found' });
+      return;
+    }
+
+    // Kiểm tra quyền (đã có sẵn)
+    if (event.organizerId.toString() !== userId && userRole !== 'admin') {
+      res.status(403).json({ msg: 'Not authorized to update this event' });
+      return;
+    }
+
+    const {
+      title, date, time, location, address, image, price, isFree, category,
+      description, longDescription, capacity, status, schedule,
+      isFeatured, // Đảm bảo các trường này được destructure
+      isUpcoming  // Đảm bảo các trường này được destructure
+    } = req.body;
+
+    // Cập nhật các trường thông thường
+    // Sử dụng Object.assign an toàn hơn hoặc cập nhật từng trường nếu bạn muốn kiểm soát chặt chẽ
+    if (title !== undefined) event.title = title;
+    if (date !== undefined) event.date = new Date(date);
+    if (time !== undefined) event.time = time;
+    if (location !== undefined) event.location = location;
+    if (address !== undefined) event.address = address;
+    if (image !== undefined) event.image = image;
+    if (category !== undefined) event.category = category;
+    if (description !== undefined) event.description = description;
+    if (longDescription !== undefined) event.longDescription = longDescription;
+    if (capacity !== undefined) event.capacity = parseInt(capacity, 10);
+    if (status !== undefined) event.status = status;
+    if (schedule !== undefined) event.schedule = schedule;
+
+    if (typeof isFree === 'boolean') {
+      event.isFree = isFree;
+    }
+
+    if (isFeatured !== undefined) {
+      event.isFeatured = isFeatured;
+    }
+    if (isUpcoming !== undefined) {
+      event.isUpcoming = isUpcoming;
+    }
+
+    // Logic xử lý giá
+    if (event.isFree === false && price) { 
+      if (
+        typeof price.amount !== 'number' ||
+        typeof price.currency !== 'string' ||
+        !['vnd', 'usd'].includes(price.currency.toLowerCase())
+      ) {
+        res.status(400).json({ msg: 'Invalid price format' });
+        return;
+      }
+      event.price = {
+        amount: Number(price.amount),
+        currency: price.currency.toLowerCase(),
+      };
+    } else if (event.isFree === true) { 
+      event.price = undefined; 
+    }
+
+    const updatedEvent = await event.save(); 
+    res.json(updatedEvent); 
+  } catch (err: any) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+      res.status(404).json({ msg: 'Event not found (Invalid ID)' });
+      return;
+    }
+    res.status(500).send('Server Error');
+  }
+};
+
+// @route   POST /api/events/:id/register
+// @desc    Register for a FREE event
+// export const registerForEvent: RequestHandler = async (req, res): Promise<void> => {
+//     try {
+//         const userId = req.user?.id;
+//         if (!userId) {
+//             res.status(401).json({ msg: 'User not authenticated' });
+//             return;
+//         }
+        
+//         const event = await Event.findById(req.params.id);
+        
+//         if (!event) {
+//             res.status(404).json({ msg: 'Event not found' });
+//             return;
+//         }
+
+//         if (!event.isFree) {
+//             res.status(400).json({ msg: 'This is a paid event. Please use the payment flow.' });
+//             return;
+//         }
+
+//         if (event.registeredAttendees.includes(new mongoose.Types.ObjectId(userId))) {
+//             res.status(400).json({ msg: 'You are already registered for this event' });
+//             return;
+//         }
+
+//         if (event.capacity && event.registeredAttendees.length >= event.capacity) {
+//             res.status(400).json({ msg: 'Event is full' });
+//             return;
+//         }
+
+//         event.registeredAttendees.push(new mongoose.Types.ObjectId(userId));
+//         await event.save();
+//         res.json({ msg: 'Successfully registered for the free event', event });
+//     } catch (err: any) {
+//         console.error(err.message);
+//         res.status(500).send('Server Error');
+//     }
+// };
+export const registerForEvent: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ msg: 'User not authenticated' });
+      return;
+    }
+
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      res.status(404).json({ msg: 'Event not found' });
+      return;
+    }
+
+    if (!event.isFree) {
+      res.status(400).json({ msg: 'This is a paid event. Please use the payment flow.' });
+      return;
+    }
+
+    if (event.registeredAttendees.includes(new mongoose.Types.ObjectId(userId))) {
+      res.status(400).json({ msg: 'You are already registered for this event' });
+      return;
+    }
+
+    if (event.capacity && event.registeredAttendees.length >= event.capacity) {
+      res.status(400).json({ msg: 'Event is full' });
+      return;
+    }
+    // if (typeof req.body.price === 'string' && req.body.price.toLowerCase() === 'free') {
+    //   req.body.price = undefined;
+    // }
+
+    event.registeredAttendees.push(new mongoose.Types.ObjectId(userId));
+    await event.save();
+    res.json({ msg: 'Successfully registered for the free event', event });
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
 
 // @route   GET /api/events
-// @desc    Get all events
-// @access  Public
+// @desc    Get all events with filtering
 export const getEvents: RequestHandler = async (req, res): Promise<void> => {
   try {
-    const { search, category, dateFilter, priceMin, priceMax } = req.query;
+    const { search, category, dateFilter } = req.query;
     let query: any = {};
 
-    // Thêm điều kiện tìm kiếm (search term)
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
@@ -72,12 +390,10 @@ export const getEvents: RequestHandler = async (req, res): Promise<void> => {
       ];
     }
 
-    // Thêm điều kiện lọc theo category
-    if (category && category !== 'All') { // 'All' có thể là một lựa chọn trong frontend
+    if (category && category !== 'All') {
       query.category = category;
     }
 
-    // Logic lọc theo dateFilter
     if (dateFilter) {
       const today = new Date();
       let startDate: Date;
@@ -86,43 +402,32 @@ export const getEvents: RequestHandler = async (req, res): Promise<void> => {
       switch (dateFilter) {
         case 'Today':
           startDate = new Date(today.setHours(0, 0, 0, 0));
-          endDate = new Date(today.setHours(23, 59, 59, 999));
+          endDate = new Date(new Date(startDate).setHours(23, 59, 59, 999));
           query.date = { $gte: startDate, $lte: endDate };
           break;
         case 'Tomorrow':
-            startDate = new Date(today);
+            startDate = new Date();
             startDate.setDate(today.getDate() + 1);
             startDate.setHours(0, 0, 0, 0);
             endDate = new Date(startDate);
             endDate.setHours(23, 59, 59, 999);
             query.date = { $gte: startDate, $lte: endDate };
             break;
-        case 'This Weekend':
-            // Tạm bỏ qua cho nhanh, hoặc có thể dùng thư viện date-fns ở backend
-            break;
         case 'This Week':
-            startDate = new Date(today);
-            startDate.setDate(today.getDate() - today.getDay());
-            startDate.setHours(0, 0, 0, 0);
-
-            endDate = new Date(startDate);
-            endDate.setDate(startDate.getDate() + 6);
-            endDate.setHours(23, 59, 59, 999);
-            query.date = { $gte: startDate, $lte: endDate };
+            const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
+            firstDayOfWeek.setHours(0, 0, 0, 0);
+            const lastDayOfWeek = new Date(firstDayOfWeek);
+            lastDayOfWeek.setDate(lastDayOfWeek.getDate() + 6);
+            lastDayOfWeek.setHours(23, 59, 59, 999);
+            query.date = { $gte: firstDayOfWeek, $lte: lastDayOfWeek };
             break;
         case 'This Month':
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
             endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
             query.date = { $gte: startDate, $lte: endDate };
             break;
-        case 'Next Month':
-            startDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-            endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0, 23, 59, 59, 999);
-            query.date = { $gte: startDate, $lte: endDate };
-            break;
         case 'All Upcoming':
-            startDate = new Date(today.setHours(0,0,0,0));
-            query.date = { $gte: startDate };
+            query.date = { $gte: new Date() };
             break;
         default:
           break;
@@ -137,11 +442,10 @@ export const getEvents: RequestHandler = async (req, res): Promise<void> => {
 };
 
 // @route   GET /api/events/featured
-// @desc    Get featured events for homepage
-// @access  Public
+// @desc    Get featured events
 export const getFeaturedEvents: RequestHandler = async (req, res): Promise<void> => {
   try {
-    const featuredEvents = await Event.find({ isFeatured: true }).sort({ date: 1 }).limit(4); // Lấy 4 sự kiện nổi bật
+    const featuredEvents = await Event.find({ isFeatured: true, date: { $gte: new Date() } }).sort({ date: 1 }).limit(4);
     res.json(featuredEvents);
   } catch (err: any) {
     console.error(err.message);
@@ -150,13 +454,10 @@ export const getFeaturedEvents: RequestHandler = async (req, res): Promise<void>
 };
 
 // @route   GET /api/events/upcoming
-// @desc    Get upcoming events for homepage
-// @access  Public
+// @desc    Get upcoming events
 export const getUpcomingEvents: RequestHandler = async (req, res): Promise<void> => {
     try {
-      // Lấy các sự kiện có ngày trong tương lai
-      const today = new Date();
-      const upcomingEvents = await Event.find({ date: { $gte: today }, isUpcoming: true }).sort({ date: 1 }).limit(4); // Lấy 4 sự kiện sắp tới
+      const upcomingEvents = await Event.find({ date: { $gte: new Date() }, isUpcoming: true }).sort({ date: 1 }).limit(8);
       res.json(upcomingEvents);
     } catch (err: any) {
       console.error(err.message);
@@ -164,97 +465,17 @@ export const getUpcomingEvents: RequestHandler = async (req, res): Promise<void>
     }
   };
 
-
 // @route   GET /api/events/:id
 // @desc    Get event by ID
-// @access  Public
 export const getEventById: RequestHandler = async (req, res): Promise<void> => {
   try {
     const event = await Event.findById(req.params.id);
-
     if (!event) {
       res.status(404).json({ msg: 'Event not found' });
       return;
     }
     res.json(event);
   } catch (err: any) {
-    console.error(err.message);
-    // Kiểm tra nếu ID không hợp lệ của MongoDB
-    if (err.kind === 'ObjectId') {
-      res.status(404).json({ msg: 'Event not found (Invalid ID)' });
-      return;
-    }
-    res.status(500).send('Server Error');
-  }
-};
-
-// @route   PUT /api/events/:id
-// @desc    Update an event
-// @access  Private (Chỉ người tổ chức sự kiện hoặc admin)
-// @route   PUT /api/events/:id
-// @desc    Update an event
-// @access  Private (Chỉ người tổ chức sự kiện hoặc admin)
-export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
-  try {
-    const userId = req.user?.id;
-    const userRole = req.user?.role;
-    if (!userId) {
-      res.status(401).json({ msg: 'User not authenticated' });
-      return;
-    }
-
-    const event = await Event.findById(req.params.id);
-    if (!event) {
-      res.status(404).json({ msg: 'Event not found' });
-      return;
-    }
-
-    if (event.organizerId.toString() !== userId && userRole !== 'admin') {
-      res.status(403).json({ msg: 'Not authorized to update this event' });
-      return;
-    }
-
-    const {
-        title, date, time, location, address, image, price, category,
-        description, longDescription, capacity, organizerName, organizerImage, organizerDescription,
-        isFeatured, isUpcoming, status, schedule
-    } = req.body;
-
-    const updatedEventData: Partial<IEvent> = {
-        title,
-        date: date ? new Date(date) : undefined,
-        time,
-        location,
-        address,
-        image,
-        price,
-        category,
-        description,
-        longDescription: longDescription || description || event.longDescription,
-        capacity: capacity ? parseInt(capacity) : undefined,
-        isFeatured,
-        isUpcoming,
-        status,
-        schedule
-    };
-
-    if (organizerName || organizerImage || organizerDescription) {
-        (updatedEventData as any).organizer = {
-            name: organizerName || event.organizer.name,
-            image: organizerImage || event.organizer.image,
-            description: organizerDescription || event.organizer.description
-        };
-    }
-
-    const updatedEvent = await Event.findByIdAndUpdate(
-      req.params.id,
-      { $set: updatedEventData },
-      { new: true, runValidators: true }
-    );
-
-    res.json(updatedEvent);
-  } catch (err: any) {
-    console.error(err.message);
     if (err.kind === 'ObjectId') {
       res.status(404).json({ msg: 'Event not found (Invalid ID)' });
       return;
@@ -265,32 +486,22 @@ export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
 
 // @route   DELETE /api/events/:id
 // @desc    Delete an event
-// @access  Private (Chỉ người tổ chức sự kiện hoặc admin)
 export const deleteEvent: RequestHandler = async (req, res): Promise<void> => {
   try {
     const userId = req.user?.id;
-    const userRole = req.user?.role; // Lấy role từ token
-    if (!userId) {
-      res.status(401).json({ msg: 'User not authenticated' });
-      return;
-    }
-
+    const userRole = req.user?.role;
     const event = await Event.findById(req.params.id);
     if (!event) {
       res.status(404).json({ msg: 'Event not found' });
       return;
     }
-
-    // KIỂM TRA QUYỀN: Chỉ người tạo sự kiện HOẶC admin mới được xóa
     if (event.organizerId.toString() !== userId && userRole !== 'admin') {
       res.status(403).json({ msg: 'Not authorized to delete this event' });
       return;
     }
-
     await Event.findByIdAndDelete(req.params.id);
     res.json({ msg: 'Event removed' });
   } catch (err: any) {
-    console.error(err.message);
     if (err.kind === 'ObjectId') {
       res.status(404).json({ msg: 'Event not found (Invalid ID)' });
       return;
@@ -299,20 +510,77 @@ export const deleteEvent: RequestHandler = async (req, res): Promise<void> => {
   }
 };
 
-// @route   POST /api/events/:id/register
-// @desc    Register for an event
-// @access  Private (Người dùng đã đăng nhập)
-export const registerForEvent: RequestHandler = async (req, res): Promise<void> => {
-  // try {
-  //   // Lấy userId từ token đã được xác thực (sẽ được thêm vào bởi Auth middleware)
-  //   const userId = (req as any).user?.id; 
+// @route   POST /api/events/:id/unregister
+// @desc    Unregister from an event
+export const unregisterFromEvent: RequestHandler = async (req, res): Promise<void> => {
     try {
-    const userId = req.user?.id;
-    const { discountCode } = req.body;
-
-    if (!userId) {
-        res.status(401).json({ msg: 'Not authorized, no user ID' });
+      const userId = req.user?.id;
+      if (!userId) {
+          res.status(401).json({ msg: 'Not authorized, no user ID' });
+          return;
+      }
+      const event = await Event.findById(req.params.id);
+      if (!event) {
+        res.status(404).json({ msg: 'Event not found' });
         return;
+      }
+      const initialLength = event.registeredAttendees.length;
+      event.registeredAttendees = event.registeredAttendees.filter(
+        (attendeeId) => attendeeId.toString() !== userId
+      );
+      if (event.registeredAttendees.length === initialLength) {
+          res.status(400).json({ msg: 'You are not registered for this event' });
+          return;
+      }
+      await event.save();
+      res.json({ msg: 'Successfully unregistered from the event', event });
+    } catch (err: any) {
+      if (err.kind === 'ObjectId') {
+          res.status(404).json({ msg: 'Event or User not found (Invalid ID)' });
+          return;
+      }
+      res.status(500).send('Server Error');
+    }
+};
+
+// @route   GET /api/events/my-events
+// @desc    Get all events created by the logged-in user
+export const getMyEvents: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ msg: 'User not authenticated' });
+      return;
+    }
+    const myEvents = await Event.find({ organizerId: userId }).sort({ date: -1 });
+    res.json(myEvents);
+  } catch (err: any) {
+    res.status(500).send('Server Error');
+  }
+};
+
+// @route   GET /api/events/organizer/:organizerId
+// @desc    Get all events by organizer
+export const getEventsByOrganizer: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const organizerId = req.params.organizerId;
+    const events = await Event.find({ organizerId: organizerId }).sort({ date: -1 });
+    res.json(events);
+  } catch (err: any) {
+    if (err.kind === 'ObjectId') {
+        res.status(404).json({ msg: 'Organizer not found' });
+        return;
+    }
+    res.status(500).send('Server Error');
+  }
+};
+
+export const purchaseTicket: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ msg: 'User not authenticated' });
+      return;
     }
 
     const event = await Event.findById(req.params.id);
@@ -322,153 +590,65 @@ export const registerForEvent: RequestHandler = async (req, res): Promise<void> 
       return;
     }
 
-    if (event.organizerId && event.organizerId.toString() === userId) {
-      res.status(400).json({ msg: 'Người tổ chức không thể đăng ký sự kiện của chính mình.' });
+    // ĐẢM BẢO CHỈ XỬ LÝ SỰ KIỆN CÓ PHÍ
+    if (event.isFree) {
+      res.status(400).json({ msg: 'This is a free event. Please use the registration flow.' });
       return;
     }
 
-    // Kiểm tra xem người dùng đã đăng ký chưa
+    // Kiểm tra xem thông tin giá có hợp lệ không (từ DB)
+    if (!event.price || typeof event.price.amount !== 'number' || typeof event.price.currency !== 'string') {
+        res.status(400).json({ msg: 'Event price information is missing or invalid in database.' });
+        return;
+    }
+
     if (event.registeredAttendees.includes(new mongoose.Types.ObjectId(userId))) {
-      res.status(400).json({ msg: 'You are already registered for this event' });
+      res.status(400).json({ msg: 'You have already purchased a ticket for this event.' });
       return;
     }
 
-    // Kiểm tra sức chứa
     if (event.capacity && event.registeredAttendees.length >= event.capacity) {
-        res.status(400).json({ msg: 'Event is full' });
-        return;
-    }
-
-    let finalPrice = parseFloat(event.price.replace('$', '')); 
-    let appliedDiscount = null;
-
-    if (discountCode && discountCode.trim() !== '' && event.price !== 'Free') {
-        const foundCode = await DiscountCode.findOne({ code: discountCode.toUpperCase() });
-
-        if (!foundCode || !foundCode.isActive || (foundCode.expirationDate && foundCode.expirationDate < new Date())) {
-            res.status(400).json({ msg: 'Invalid or expired discount code.' });
-            return;
-        }
-        if (foundCode.usageLimit && foundCode.timesUsed >= foundCode.usageLimit) {
-            res.status(400).json({ msg: 'Discount code has reached its usage limit.' });
-            return;
-        }
-
-        // Áp dụng giảm giá
-        if (foundCode.type === 'percentage') {
-            finalPrice = finalPrice * (1 - foundCode.value / 100);
-        } else if (foundCode.type === 'fixed') {
-            finalPrice = finalPrice - foundCode.value;
-        }
-        if (finalPrice < 0) finalPrice = 0; // Đảm bảo giá không âm
-
-        // Cập nhật số lần sử dụng mã giảm giá
-        foundCode.timesUsed += 1;
-        await foundCode.save();
-        appliedDiscount = foundCode; // Lưu mã đã áp dụng
-    }
-
-    // Thêm người dùng vào danh sách đăng ký
-    event.registeredAttendees.push(new mongoose.Types.ObjectId(userId)); // Thêm ObjectId
-
-    await event.save();
-    res.json({ msg: 'Successfully registered for the event', event,
-      appliedDiscount: appliedDiscount ? { code: appliedDiscount.code, value: appliedDiscount.value, type: appliedDiscount.type, finalPrice } : undefined,
-      finalEventPrice: finalPrice
-     });
-  } catch (err: any) {
-    console.error(err.message);
-    if (err.kind === 'ObjectId') {
-        res.status(404).json({ msg: 'Event or User not found (Invalid ID)' });
-        return;
-    }
-    res.status(500).send('Server Error');
-  }
-};
-
-// @route   POST /api/events/:id/unregister
-// @desc    Unregister from an event
-// @access  Private (Người dùng đã đăng nhập)
-export const unregisterFromEvent: RequestHandler = async (req, res): Promise<void> => {
-    try {
-      const userId = (req as any).user?.id; // Giả định req.user.id tồn tại sau khi xác thực
-
-      if (!userId) {
-          res.status(401).json({ msg: 'Not authorized, no user ID' });
-          return;
-      }
-
-      const event = await Event.findById(req.params.id);
-
-      if (!event) {
-        res.status(404).json({ msg: 'Event not found' });
-        return;
-      }
-
-      // Lọc người dùng khỏi danh sách đăng ký
-      const initialLength = event.registeredAttendees.length;
-      event.registeredAttendees = event.registeredAttendees.filter(
-        (attendeeId) => attendeeId.toString() !== userId
-      );
-
-      if (event.registeredAttendees.length === initialLength) {
-          res.status(400).json({ msg: 'You are not registered for this event' });
-          return;
-      }
-
-      await event.save();
-      res.json({ msg: 'Successfully unregistered from the event', event });
-    } catch (err: any) {
-      console.error(err.message);
-      if (err.kind === 'ObjectId') {
-          res.status(404).json({ msg: 'Event or User not found (Invalid ID)' });
-          return;
-      }
-      res.status(500).send('Server Error');
-    }
-  };
-
-// @route   GET /api/events/my-events
-// @desc    Get all events created by the logged-in user
-// @access  Private
-export const getMyEvents: RequestHandler = async (req, res): Promise<void> => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ msg: 'User not authenticated' });
+      res.status(400).json({ msg: 'Event is full.' });
       return;
     }
 
-    // Tìm tất cả các sự kiện có organizerId khớp với ID của người dùng đang đăng nhập
-    const myEvents = await Event.find({ organizerId: userId }).sort({ date: -1 }); // Sắp xếp theo ngày gần nhất
+    // *************** DEMO/MOCK PAYMENT LOGIC START ***************
+    // Đây là nơi trong ứng dụng thật bạn sẽ tích hợp cổng thanh toán.
+    // Hiện tại, chúng ta giả định thanh toán luôn thành công và ghi nhận đăng ký.
 
-    if (!myEvents) {
-        res.status(404).json({ msg: 'No events found for this user.' });
-        return;
-    }
+    event.registeredAttendees.push(new mongoose.Types.ObjectId(userId));
+    await event.save();
 
-    res.json(myEvents);
+    res.json({
+      msg: `Successfully purchased ticket for ${event.title} (Amount: ${event.price.amount} ${event.price.currency.toUpperCase()}).`,
+      event,
+      // Trong tương lai, bạn có thể trả về một paymentId, transactionId, etc.
+    });
+    // *************** DEMO/MOCK PAYMENT LOGIC END ***************
 
   } catch (err: any) {
-    console.error(err.message);
+    console.error("Error in purchaseTicket:", err.message);
     res.status(500).send('Server Error');
   }
 };
 
-export const getEventsByOrganizer: RequestHandler = async (req, res): Promise<void> => {
+// Hàm tạo QR code (trả về Data URL)
+const generateQRCodeDataURL = async (data: string): Promise<string> => {
   try {
-    const organizerId = req.params.organizerId;
-
-    const events = await Event.find({ organizerId: organizerId }).sort({ date: -1 });
-
-    res.json(events);
-
-  } catch (err: any) {
-    console.error(err.message);
-    if (err.kind === 'ObjectId') {
-        res.status(404).json({ msg: 'Organizer not found' });
-        return; // Bạn có thể giữ lại return; không có giá trị để thoát khỏi hàm sớm
-    }
-    res.status(500).send('Server Error');
+    const qrCodeDataUrl = await QRCode.toDataURL(data);
+    return qrCodeDataUrl;
+  } catch (err) {
+    console.error('Error generating QR code:', err);
+    throw new Error('Failed to generate QR code');
   }
 };
+
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST || 'smtp.gmail.com', // Ví dụ: smtp.gmail.com
+  port: parseInt(process.env.EMAIL_PORT || '587'), // Ví dụ: 587
+  secure: process.env.EMAIL_SECURE === 'true', // true cho 465, false cho các cổng khác (587, 25)
+  auth: {
+    user: process.env.EMAIL_USER, // Email của bạn
+    pass: process.env.EMAIL_PASS, // Mật khẩu ứng dụng hoặc mật khẩu email của bạn
+  },
+});

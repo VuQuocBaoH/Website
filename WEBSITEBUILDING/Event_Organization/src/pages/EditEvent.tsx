@@ -1,483 +1,386 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { format } from "date-fns";
-import { CalendarIcon, Clock, MapPin, Tag, Users, Plus, Minus, X } from "lucide-react"; // Import Plus, Minus, X icons
-import { toast } from "sonner";
+// EventDetail.tsx
+import { useState, useEffect } from 'react';
+import {
+  MapPin,
+  Calendar,
+  Clock,
+  Users,
+  Share2,
+  Heart,
+  Ticket,
+  ChevronRight,
+  AlertCircle,
+  User as UserIcon,
+  Mail,
+  Tag
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import axios from 'axios';
-
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
-import Navbar from "@/components/layout/Navbar";
+import { Link } from 'react-router-dom';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-// Định nghĩa schema cho một mục lịch trình (Frontend)
-const scheduleItemSchema = z.object({
-  time: z.string().min(1, "Thời gian là bắt buộc"),
-  title: z.string().min(1, "Tiêu đề là bắt buộc"),
-  description: z.string().optional(),
-});
+// Định nghĩa kiểu cho một mục trong lịch trình
+interface ScheduleItem {
+  time: string;
+  title: string;
+  description?: string;
+}
 
-const eventSchema = z.object({
-  title: z.string().min(5, "Event title must be at least 5 characters"),
-  date: z.date({
-    required_error: "Event date is required",
-  }),
-  time: z.string().min(1, "Event time is required"),
-  location: z.string().min(5, "Location must be at least 5 characters"),
-  category: z.string().min(1, "Please select a category"),
-  price: z.string().optional(),
-  capacity: z.string().optional(),
-  description: z.string().min(20, "Description must be at least 20 characters"),
-  image: z.string().optional(),
-  // Thêm schedule vào eventSchema
-  schedule: z.array(scheduleItemSchema).optional(), // Lịch trình là một mảng các mục
-});
+export interface EventDetailProps {
+  id: string;
+  title: string;
+  description: string;
+  longDescription: string;
+  date: string;
+  time: string;
+  location: string;
+  address: string;
+  image: string;
+  price: string; // Giá hiển thị (chuỗi)
+  isFree: boolean; // <-- THÊM THUỘC TÍNH NÀY TỪ EventPage.tsx
+  category: string;
+  organizer: {
+    name: string;
+    image?: string;
+    description?: string;
+  };
+  organizerId: string;
+  onRegister: (discountCode?: string) => void;
+  isRegistered: boolean;
+  registeredAttendeesCount?: number;
+  registeredAttendees: string[];
+  capacity?: number;
+  isOrganizer: boolean;
+  schedule?: ScheduleItem[];
+}
 
-const EditEvent = () => {
-  const { id } = useParams<{ id: string }>(); // Lấy ID sự kiện từ URL
-  const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingPage, setIsLoadingPage] = useState(true);
-  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+const EventDetail = ({
+  id,
+  title,
+  description,
+  longDescription,
+  date,
+  time,
+  location,
+  address,
+  image,
+  price,
+  isFree, // <-- NHẬN THUỘC TÍNH NÀY
+  category,
+  organizer,
+  organizerId,
+  onRegister,
+  isRegistered,
+  registeredAttendeesCount = 0,
+  registeredAttendees,
+  capacity,
+  isOrganizer,
+  schedule = [],
+}: EventDetailProps) => {
+  const [liked, setLiked] = useState(false);
+  const [attendeesDetails, setAttendeesDetails] = useState<any[]>([]);
+  const [fetchingAttendees, setFetchingAttendees] = useState(false);
+  const [attendeesError, setAttendeesError] = useState<string | null>(null);
+  const [discountCode, setDiscountCode] = useState('');
 
-  const form = useForm<z.infer<typeof eventSchema>>({
-    resolver: zodResolver(eventSchema),
-  });
+  const organizerDisplayImage = organizer.image && organizer.image !== "" ? organizer.image : null;
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userString = localStorage.getItem('user');
-
-    if (!token || !userString || !id) {
-      toast.error("Authentication or event ID missing. Please log in.");
-      navigate('/signin', { replace: true });
-      return;
-    }
-
-    try {
-      const user = JSON.parse(userString);
-      setCurrentUsername(user.username);
-    } catch (e) {
-      console.error("Failed to parse user data from localStorage", e);
-      toast.error("User data corrupted. Please log in again.");
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/signin', { replace: true });
-      return;
-    }
-
-    const fetchEvent = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/events/${id}`);
-        const eventData = response.data;
-
-        form.reset({
-          title: eventData.title,
-          date: new Date(eventData.date),
-          time: eventData.time,
-          location: eventData.location,
-          category: eventData.category,
-          price: eventData.price,
-          capacity: eventData.capacity ? eventData.capacity.toString() : "",
-          description: eventData.description,
-          image: eventData.image,
-          schedule: eventData.schedule || [], // Điền dữ liệu schedule vào form
-        });
-
-        setIsLoadingPage(false);
-      } catch (error: any) {
-        console.error("Error fetching event for edit:", error.response?.data || error.message);
-        toast.error(error.response?.data?.msg || "Failed to load event for editing.");
-        navigate('/events');
+    const fetchAttendees = async () => {
+      if (isOrganizer && registeredAttendees && registeredAttendees.length > 0) {
+        setFetchingAttendees(true);
+        setAttendeesError(null);
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) {
+            setAttendeesError('Authentication required to view attendee list.');
+            return;
+          }
+          const idsString = registeredAttendees.join(',');
+          const response = await axios.get(`${API_BASE_URL}/users/details?ids=${idsString}`, {
+            headers: { 'x-auth-token': token },
+          });
+          setAttendeesDetails(response.data);
+        } catch (err: any) {
+          console.error('Error fetching attendees details:', err);
+          setAttendeesError(err.response?.data?.msg || 'Failed to load attendee list.');
+        } finally {
+          setFetchingAttendees(false);
+        }
+      } else if (isOrganizer) {
+        setAttendeesDetails([]);
+        setAttendeesError(null);
       }
     };
 
-    fetchEvent();
-  }, [id, navigate, form]);
-
-
-  const onSubmit = async (values: z.infer<typeof eventSchema>) => {
-    try {
-      setIsSubmitting(true);
-      const token = localStorage.getItem('token');
-
-      if (!token || !id || !currentUsername) {
-        toast.error("Authentication or event ID missing. Please log in again.");
-        navigate('/signin');
-        return;
-      }
-
-      const eventData = {
-        ...values,
-        date: values.date.toISOString(),
-        // Đảm bảo schedule được gửi đi
-        schedule: values.schedule || [],
-      };
-
-      const response = await axios.put(`${API_BASE_URL}/events/${id}`, eventData, {
-        headers: {
-          'x-auth-token': token
-        }
-      });
-
-      console.log("Event updated:", response.data);
-      toast.success("Event updated successfully!");
-      navigate(`/events/${id}`, { state: { fromEdit: true } }); // Truyền state: { fromEdit: true }
-    } catch (error: any) {
-      console.error("Error updating event:", error.response?.data || error.message);
-      toast.error(error.response?.data?.msg || "Failed to update event.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (isLoadingPage) {
-    return <div className="min-h-screen flex items-center justify-center">Loading event data for editing...</div>;
-  }
-
-  // Hàm để thêm một mục lịch trình mới
-  const addScheduleItem = () => {
-    const currentSchedule = form.getValues("schedule") || [];
-    form.setValue("schedule", [...currentSchedule, { time: "", title: "", description: "" }]);
-  };
-
-  // Hàm để xóa một mục lịch trình
-  const removeScheduleItem = (index: number) => {
-    const currentSchedule = form.getValues("schedule") || [];
-    const newSchedule = currentSchedule.filter((_, i) => i !== index);
-    form.setValue("schedule", newSchedule);
-  };
+    fetchAttendees();
+  }, [registeredAttendees, isOrganizer]);
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Edit Event</h1>
-
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                {/* ... Các trường Event Details đã có ... */}
-                {/* Title */}
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Event Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter event title" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Make your event title clear and memorable
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Date and Time */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="date"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Event Date</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Select date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              disabled={(date) => date < new Date()}
-                              initialFocus
-                              className="p-3 pointer-events-auto"
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Main content */}
+        <div className="lg:w-2/3">
+          {/* Header */}
+          <div className="mb-8">
+            <Badge className="mb-4 bg-event-purple">{category}</Badge>
+            <h1 className="text-3xl md:text-4xl font-bold mb-4">{title}</h1>
+            <div className="flex flex-wrap items-center text-gray-700 mb-6 gap-x-6 gap-y-2">
+              <div className="flex items-center">
+                <Calendar className="h-5 w-5 mr-2 text-event-purple" />
+                <span>{date}</span>
+              </div>
+              <div className="flex items-center">
+                <Clock className="h-5 w-5 mr-2 text-event-purple" />
+                <span>{time}</span>
+              </div>
+            </div>
+            <div className="flex items-center text-gray-700 mb-6">
+              <MapPin className="h-5 w-5 mr-2 text-event-purple" />
+              <span>{location} • {address}</span>
+            </div>
+            {organizer && (
+              <div className="flex items-center space-x-2">
+                {organizerDisplayImage ? (
+                  <img
+                    src={organizerDisplayImage}
+                    alt={organizer.name}
+                    className="h-10 w-10 rounded-full object-cover"
                   />
-
-                  <FormField
-                    control={form.control}
-                    name="time"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Event Time</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                              placeholder="7:00 PM"
-                              className="pl-10"
-                              {...field}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Location */}
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input
-                            placeholder="Event location"
-                            className="pl-10"
-                            {...field}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Category */}
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select a category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Music">Music</SelectItem>
-                          <SelectItem value="Food & Drink">Food & Drink</SelectItem>
-                          <SelectItem value="Business">Business</SelectItem>
-                          <SelectItem value="Education">Education</SelectItem>
-                          <SelectItem value="Gaming">Gaming</SelectItem>
-                          <SelectItem value="Social">Social</SelectItem>
-                          <SelectItem value="Health">Health</SelectItem>
-                          <SelectItem value="Arts">Arts</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Price and Capacity */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="price"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Price</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                              placeholder="Free or enter price"
-                              className="pl-10"
-                              {...field}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="capacity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Capacity</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                            <Input
-                              placeholder="Number of attendees"
-                              className="pl-10"
-                              {...field}
-                              type="number"
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Description */}
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Event Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Describe your event"
-                          className="min-h-[120px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Provide details about your event to attract attendees
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Image URL */}
-                <FormField
-                  control={form.control}
-                  name="image"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Event Image URL</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://example.com/image.jpg" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Provide a URL to an image for your event
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Event Schedule Section */}
-                <div className="space-y-4 border-t pt-8 mt-8">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-bold">Event Schedule</h2>
-                    <Button type="button" variant="outline" onClick={addScheduleItem}>
-                      <Plus className="h-4 w-4 mr-2" /> Thêm mục
-                    </Button>
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                    <UserIcon className="h-6 w-6 text-gray-500" />
                   </div>
-                  {form.watch("schedule") && form.watch("schedule")!.length > 0 ? (
-                    <div className="space-y-4">
-                      {form.watch("schedule")!.map((item, index) => (
-                        <div key={index} className="border p-4 rounded-md bg-gray-50 relative">
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="sm" 
-                            className="absolute top-2 right-2 text-gray-500 hover:text-red-500"
-                            onClick={() => removeScheduleItem(index)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                          <FormField
-                            control={form.control}
-                            name={`schedule.${index}.time`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Thời gian</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Ví dụ: 9:00 AM - 10:00 AM" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name={`schedule.${index}.title`}
-                            render={({ field }) => (
-                              <FormItem className="mt-2">
-                                <FormLabel>Tiêu đề</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Ví dụ: Đăng ký & Chào mừng" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name={`schedule.${index}.description`}
-                            render={({ field }) => (
-                              <FormItem className="mt-2">
-                                <FormLabel>Mô tả (tùy chọn)</FormLabel>
-                                <FormControl>
-                                  <Textarea placeholder="Mô tả chi tiết mục này" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">Chưa có mục lịch trình nào. Nhấn "Thêm mục" để bắt đầu.</p>
-                  )}
+                )}
+                <div>
+                  <p className="text-sm text-gray-500">Tổ chức bởi</p>
+                  <p className="font-medium">{organizer.name}</p>
                 </div>
+              </div>
+            )}
+          </div>
 
-                <div className="flex justify-end space-x-4">
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onClick={() => navigate(-1)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="bg-event-purple hover:bg-event-dark-purple"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Updating..." : "Update Event"}
-                  </Button>
+          {/* Event image */}
+          <div className="mb-8">
+            <img
+              src={image}
+              alt={title}
+              className="w-full h-auto max-h-[500px] object-cover rounded-lg border"
+            />
+          </div>
+
+          {/* Tabs */}
+          <Tabs defaultValue="about">
+            <TabsList className={`grid w-full mb-8 ${isOrganizer ? 'grid-cols-4' : 'grid-cols-3'}`}>
+              <TabsTrigger value="about">Thông tin</TabsTrigger>
+              <TabsTrigger value="schedule">Các mốc sự kiện</TabsTrigger>
+              <TabsTrigger value="organizer">Ban tổ chức</TabsTrigger>
+              {isOrganizer && (
+                <TabsTrigger value="attendees">Người đăng kí({registeredAttendeesCount})</TabsTrigger>
+              )}
+            </TabsList>
+
+            <TabsContent value="about" className="space-y-6">
+              <div className="prose max-w-none">
+                <h3 className="text-xl font-semibold mb-4">Thông báo</h3>
+                <p className="text-gray-700 whitespace-pre-wrap">{longDescription || description}</p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="schedule" className="space-y-6">
+              <h3 className="text-xl font-semibold mb-4">Thời gian các hoạt động</h3>
+              {schedule && schedule.length > 0 ? (
+                <div className="border-l-2 border-event-purple pl-6 space-y-8">
+                  {schedule.map((item, index) => (
+                    <div key={index} className="relative">
+                      <div className="absolute top-1 left-[-1.8rem] w-4 h-4 rounded-full bg-event-purple border-4 border-white"></div>
+                      <div>
+                        <p className="text-sm text-gray-500 font-medium">{item.time}</p>
+                        <h4 className="font-semibold text-lg">{item.title}</h4>
+                        {item.description && (
+                          <p className="text-gray-600 text-sm mt-1">{item.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </form>
-            </Form>
+              ) : (
+                <div className="text-center py-8 px-4 bg-gray-50 rounded-lg">
+                  <p className="text-gray-600">Tạm thời chưa có mốc thời gian cho sự kiện</p>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="organizer">
+              <div className="space-y-4">
+                {organizer && (
+                  <>
+                    <div className="flex items-center space-x-3 mb-4">
+                      {organizerDisplayImage ? (
+                        <img
+                          src={organizerDisplayImage}
+                          alt={organizer.name}
+                          className="h-16 w-16 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center">
+                          <UserIcon className="h-10 w-10 text-gray-500" />
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-semibold text-lg">{organizer.name}</h3>
+                        <p className="text-sm text-gray-500">Người tổ chức</p>
+                      </div>
+                    </div>
+                    <p className="text-gray-700">{organizer.description || `Meet ${organizer.name}, the organizer of this event.`}</p>
+                    <Link to={`/organizers/${organizerId}`}>
+                        <Button variant="outline" className="mt-4">
+                            Xem hồ sơ
+                            <ChevronRight className="ml-2 h-4 w-4" />
+                        </Button>
+                    </Link>
+                  </>
+                )}
+              </div>
+            </TabsContent>
+
+            {isOrganizer && (
+              <TabsContent value="attendees">
+                <h3 className="text-xl font-semibold mb-4">Người đăng kí</h3>
+                {fetchingAttendees ? (
+                  <p>Đang tải...</p>
+                ) : attendeesError ? (
+                  <p className="text-red-500">{attendeesError}</p>
+                ) : attendeesDetails.length > 0 ? (
+                  <ul className="space-y-3">
+                    {attendeesDetails.map((attendee) => (
+                      <li key={attendee.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md">
+                        <UserIcon className="h-5 w-5 text-gray-500" />
+                        <div>
+                          <p className="font-medium">{attendee.username}</p>
+                          <p className="text-sm text-gray-600 flex items-center">
+                            <Mail className="h-4 w-4 mr-1" />
+                            {attendee.email}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-600">Chưa có người đăng kí.</p>
+                )}
+              </TabsContent>
+            )}
+          </Tabs>
+        </div>
+
+        {/* Sidebar */}
+        <div className="lg:w-1/3">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-24">
+            <div className="mb-6 pb-6 border-b border-gray-100">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <p className="text-sm text-gray-500">Giá tiền</p>
+                  <p className="text-xl font-semibold">
+                    {price} {/* Giá hiển thị đã được format */}
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setLiked(!liked)}
+                    className={`p-2 rounded-full border ${liked ? 'bg-red-50 border-red-200 text-red-500' : 'bg-gray-50 border-gray-200 text-gray-400'} hover:bg-gray-100 transition-colors`}
+                  >
+                    <Heart className={`h-5 w-5 ${liked ? 'fill-current' : ''}`} />
+                  </button>
+                  <button className="p-2 rounded-full bg-gray-50 border border-gray-200 text-gray-400 hover:bg-gray-100">
+                    <Share2 className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+              
+              {!isOrganizer ? (
+                <>
+                  {/* Mã giảm giá chỉ hiển thị cho sự kiện CÓ PHÍ */}
+                  {!isFree && ( // Dùng isFree thay vì price !== 'Free'
+                    <div className="mb-4">
+                      <label htmlFor="discountCode" className="block text-sm font-medium text-gray-700 mb-2">
+                        Mã giảm giá
+                      </label>
+                      <div className="relative">
+                        <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="discountCode"
+                          type="text"
+                          placeholder="Nhập mã giảm giá (tùy chọn)"
+                          className="pl-10"
+                          value={discountCode}
+                          onChange={(e) => setDiscountCode(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <Button
+                    className="w-full bg-event-purple hover:bg-event-dark-purple"
+                    onClick={() => onRegister(discountCode)}
+                    disabled={isRegistered}
+                  >
+                    <Ticket className="mr-2 h-5 w-5" />
+                    {isRegistered
+                      ? 'Đã đăng ký'
+                      : (isFree ? 'Đăng ký miễn phí' : 'Mua vé')} {/* Thay đổi văn bản nút */}
+                  </Button>
+                </>
+              ) : (
+                <div className="text-center p-4 bg-gray-100 rounded-md">
+                  <p className="text-sm font-medium text-gray-700">Bạn là người tổ chức sự kiện này.</p>
+                </div>
+              )}
+              
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-semibold">Thông tin sự kiện</h3>
+              <div className="flex items-start space-x-3">
+                <Users className="h-5 w-5 text-gray-500 mt-0.5" />
+                <div>
+                  <p className="font-medium">Số lượng đăng kí</p>
+                  <p className="text-sm text-gray-600">
+                    {registeredAttendeesCount} người đã đăng ký {capacity ? ` / ${capacity} người` : ""}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <Calendar className="h-5 w-5 text-gray-500 mt-0.5" />
+                <div>
+                  <p className="font-medium">Thời gian</p>
+                  <p className="text-sm text-gray-600">{date}</p>
+                  <p className="text-sm text-gray-600">{time}</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <MapPin className="h-5 w-5 text-gray-500 mt-0.5" />
+                <div>
+                  <p className="font-medium">Địa điểm</p>
+                  <p className="text-sm text-gray-600">{location}</p>
+                  <p className="text-sm text-gray-600">{address}</p>
+                </div>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-4 flex items-start space-x-3">
+                <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-800">Chính sách hoàn trả</p>
+                  <p className="text-sm text-amber-700">
+                    Hoàn trả trong vòng 7 ngày trước khi diễn ra sự kiện.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -485,4 +388,4 @@ const EditEvent = () => {
   );
 };
 
-export default EditEvent;
+export default EventDetail;

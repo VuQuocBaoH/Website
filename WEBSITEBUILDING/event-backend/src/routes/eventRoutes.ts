@@ -11,6 +11,7 @@ import {
   getUpcomingEvents,
   getMyEvents,
   getEventsByOrganizer,
+  purchaseTicket
 } from '../controllers/eventController';
 import authMiddleware from '../middleware/authMiddleware'; 
 
@@ -26,6 +27,7 @@ router.post('/', authMiddleware, createEvent);
 router.put('/:id', authMiddleware, updateEvent);
 router.delete('/:id', authMiddleware, deleteEvent);
 router.post('/:id/register', authMiddleware, registerForEvent);
+router.post('/:id/purchase-ticket', authMiddleware, purchaseTicket);
 router.post('/:id/unregister', authMiddleware, unregisterFromEvent);
 
 export default router;
