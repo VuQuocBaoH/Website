@@ -1,3 +1,4 @@
+// src/components/events/EventDetail.tsx
 import { useState, useEffect } from 'react';
 import {
   MapPin,
@@ -40,6 +41,7 @@ export interface EventDetailProps {
   address: string;
   image: string;
   price: string;
+  isFree: boolean; 
   category: string;
   organizer: {
     name: string;
@@ -50,10 +52,10 @@ export interface EventDetailProps {
   onRegister: (discountCode?: string) => void;
   isRegistered: boolean;
   registeredAttendeesCount?: number;
-  registeredAttendees: string[];
+  // registeredAttendees: string[]; //
   capacity?: number;
   isOrganizer: boolean;
-  schedule?: ScheduleItem[]; // Thêm schedule vào props
+  schedule?: ScheduleItem[];
 }
 
 const EventDetail = ({
@@ -67,16 +69,17 @@ const EventDetail = ({
   address,
   image,
   price,
+  isFree, 
   category,
   organizer,
   organizerId,
   onRegister,
   isRegistered,
   registeredAttendeesCount = 0,
-  registeredAttendees,
+  // registeredAttendees, // 
   capacity,
   isOrganizer,
-  schedule = [], // Nhận schedule, mặc định là mảng rỗng để không bị crash
+  schedule = [],
 }: EventDetailProps) => {
   const [liked, setLiked] = useState(false);
   const [attendeesDetails, setAttendeesDetails] = useState<any[]>([]);
@@ -86,9 +89,11 @@ const EventDetail = ({
 
   const organizerDisplayImage = organizer.image && organizer.image !== "" ? organizer.image : null;
 
+  // Cập nhật useEffect này để fetch attendeesDetails từ API /events/:id/tickets
   useEffect(() => {
     const fetchAttendees = async () => {
-      if (isOrganizer && registeredAttendees && registeredAttendees.length > 0) {
+      // Chỉ fetch nếu là organizer
+      if (isOrganizer) {
         setFetchingAttendees(true);
         setAttendeesError(null);
         try {
@@ -97,25 +102,34 @@ const EventDetail = ({
             setAttendeesError('Authentication required to view attendee list.');
             return;
           }
-          const idsString = registeredAttendees.join(',');
-          const response = await axios.get(`${API_BASE_URL}/users/details?ids=${idsString}`, {
+          // Gọi API mới để lấy danh sách vé của sự kiện, có populate thông tin user
+          const response = await axios.get(`${API_BASE_URL}/events/${id}/tickets`, {
             headers: { 'x-auth-token': token },
           });
-          setAttendeesDetails(response.data);
+          // response.data sẽ là mảng các ticket object, mỗi ticket có thuộc tính user (đã populate)
+          setAttendeesDetails(response.data.map((ticket: any) => ({
+            id: ticket.user?.id || ticket.userId, // ID của người dùng
+            username: ticket.user?.username || 'Người dùng ẩn danh',
+            email: ticket.user?.email || 'N/A',
+            ticketCode: ticket.ticketCode, // Để có thể hiển thị mã vé trong danh sách này
+            checkInStatus: ticket.checkInStatus,
+            checkInTime: ticket.checkInTime,
+          })));
         } catch (err: any) {
           console.error('Error fetching attendees details:', err);
           setAttendeesError(err.response?.data?.msg || 'Failed to load attendee list.');
         } finally {
           setFetchingAttendees(false);
         }
-      } else if (isOrganizer) {
+      } else { // Nếu không phải organizer, xóa dữ liệu attendees
         setAttendeesDetails([]);
         setAttendeesError(null);
       }
     };
 
+    // Gọi lại khi isOrganizer thay đổi hoặc ID sự kiện thay đổi
     fetchAttendees();
-  }, [registeredAttendees, isOrganizer]);
+  }, [id, isOrganizer]);
 
 
   return (
@@ -264,6 +278,17 @@ const EventDetail = ({
                             <Mail className="h-4 w-4 mr-1" />
                             {attendee.email}
                           </p>
+                          {/* Hiển thị mã vé và trạng thái check-in */}
+                          {attendee.ticketCode && <p className="text-xs text-gray-500">Mã vé: {attendee.ticketCode}</p>}
+                          {attendee.checkInStatus && <p className={`text-xs font-semibold ${
+                              attendee.checkInStatus === 'checkedIn' ? 'text-green-600' :
+                              attendee.checkInStatus === 'pending' ? 'text-yellow-600' :
+                              'text-red-600'
+                          }`}>
+                              Trạng thái: {attendee.checkInStatus === 'checkedIn' ? 'Đã Check-in' :
+                                           attendee.checkInStatus === 'pending' ? 'Chờ Check-in' :
+                                           'Vắng mặt'}
+                          </p>}
                         </div>
                       </li>
                     ))}
@@ -284,7 +309,7 @@ const EventDetail = ({
                 <div>
                   <p className="text-sm text-gray-500">Giá tiền</p>
                   <p className="text-xl font-semibold">
-                    {price === 'Free' ? 'Free' : `${price}`}
+                    {price === 'Free' ? 'Free' : price} {/* Price is already formatted from EventPage */}
                   </p>
                 </div>
                 <div className="flex space-x-2">
@@ -302,7 +327,8 @@ const EventDetail = ({
               
               {!isOrganizer ? (
                 <>
-                  {price !== 'Free' && (
+                  {/* Mã giảm giá chỉ hiển thị cho sự kiện CÓ PHÍ, dùng isFree prop */}
+                  {!isFree && (
                     <div className="mb-4">
                       <label htmlFor="discountCode" className="block text-sm font-medium text-gray-700 mb-2">
                         Mã giảm giá
@@ -327,7 +353,9 @@ const EventDetail = ({
                     disabled={isRegistered}
                   >
                     <Ticket className="mr-2 h-5 w-5" />
-                    {isRegistered ? 'Đã đăng ký' : 'Đăng ký vé'}
+                    {isRegistered
+                      ? 'Đã đăng ký'
+                      : (isFree ? 'Đăng ký miễn phí' : 'Mua vé')} {/* Văn bản nút dựa vào isFree */}
                   </Button>
                 </>
               ) : (

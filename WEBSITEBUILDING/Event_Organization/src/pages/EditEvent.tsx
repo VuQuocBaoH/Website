@@ -1,391 +1,397 @@
-// EventDetail.tsx
-import { useState, useEffect } from 'react';
-import {
-  MapPin,
-  Calendar,
-  Clock,
-  Users,
-  Share2,
-  Heart,
-  Ticket,
-  ChevronRight,
-  AlertCircle,
-  User as UserIcon,
-  Mail,
-  Tag
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { format } from "date-fns";
+import { CalendarIcon, Plus, X } from "lucide-react";
+import { toast } from "sonner";
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
-// Định nghĩa kiểu cho một mục trong lịch trình
-interface ScheduleItem {
-  time: string;
-  title: string;
-  description?: string;
-}
+const scheduleItemSchema = z.object({
+  time: z.string().min(1, "Thời gian là bắt buộc"),
+  title: z.string().min(1, "Tiêu đề là bắt buộc"),
+  description: z.string().optional(),
+});
 
-export interface EventDetailProps {
-  id: string;
-  title: string;
-  description: string;
-  longDescription: string;
-  date: string;
-  time: string;
-  location: string;
-  address: string;
-  image: string;
-  price: string; // Giá hiển thị (chuỗi)
-  isFree: boolean; // <-- THÊM THUỘC TÍNH NÀY TỪ EventPage.tsx
-  category: string;
-  organizer: {
-    name: string;
-    image?: string;
-    description?: string;
-  };
-  organizerId: string;
-  onRegister: (discountCode?: string) => void;
-  isRegistered: boolean;
-  registeredAttendeesCount?: number;
-  registeredAttendees: string[];
-  capacity?: number;
-  isOrganizer: boolean;
-  schedule?: ScheduleItem[];
-}
+const priceSchema = z.object({
+  amount: z.coerce.number({ invalid_type_error: "Giá vé phải là số." }).min(0, "Giá vé không thể âm."),
+  currency: z.enum(['vnd', 'usd'], { required_error: "Vui lòng chọn đơn vị tiền tệ." }),
+});
 
-const EventDetail = ({
-  id,
-  title,
-  description,
-  longDescription,
-  date,
-  time,
-  location,
-  address,
-  image,
-  price,
-  isFree, // <-- NHẬN THUỘC TÍNH NÀY
-  category,
-  organizer,
-  organizerId,
-  onRegister,
-  isRegistered,
-  registeredAttendeesCount = 0,
-  registeredAttendees,
-  capacity,
-  isOrganizer,
-  schedule = [],
-}: EventDetailProps) => {
-  const [liked, setLiked] = useState(false);
-  const [attendeesDetails, setAttendeesDetails] = useState<any[]>([]);
-  const [fetchingAttendees, setFetchingAttendees] = useState(false);
-  const [attendeesError, setAttendeesError] = useState<string | null>(null);
-  const [discountCode, setDiscountCode] = useState('');
+const eventSchema = z.object({
+  title: z.string().min(5, "Tiêu đề phải có ít nhất 5 ký tự."),
+  date: z.date({ required_error: "Ngày diễn ra sự kiện là bắt buộc." }),
+  time: z.string().min(1, "Thời gian diễn ra sự kiện là bắt buộc."),
+  location: z.string().min(3, "Địa điểm phải có ít nhất 3 ký tự."),
+  category: z.string().min(1, "Vui lòng chọn một danh mục."),
+  isFree: z.boolean().default(true),
+  price: priceSchema.optional(),
+  capacity: z.string().optional(),
+  description: z.string().min(20, "Mô tả phải có ít nhất 20 ký tự."),
+  image: z.string().url("Vui lòng nhập một URL hình ảnh hợp lệ.").optional().or(z.literal('')),
+  schedule: z.array(scheduleItemSchema).optional(),
+}).refine((data) => {
+  if (!data.isFree) {
+    return data.price && data.price.amount > 0 && data.price.currency;
+  }
+  return true;
+}, {
+  path: ['price'],
+  message: "Vui lòng nhập giá vé và đơn vị nếu sự kiện không miễn phí.",
+});
 
-  const organizerDisplayImage = organizer.image && organizer.image !== "" ? organizer.image : null;
+const EditEvent = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const form = useForm<z.infer<typeof eventSchema>>({
+    resolver: zodResolver(eventSchema),
+  });
+
+  const isFree = form.watch("isFree");
 
   useEffect(() => {
-    const fetchAttendees = async () => {
-      if (isOrganizer && registeredAttendees && registeredAttendees.length > 0) {
-        setFetchingAttendees(true);
-        setAttendeesError(null);
-        try {
-          const token = localStorage.getItem('token');
-          if (!token) {
-            setAttendeesError('Authentication required to view attendee list.');
-            return;
-          }
-          const idsString = registeredAttendees.join(',');
-          const response = await axios.get(`${API_BASE_URL}/users/details?ids=${idsString}`, {
-            headers: { 'x-auth-token': token },
-          });
-          setAttendeesDetails(response.data);
-        } catch (err: any) {
-          console.error('Error fetching attendees details:', err);
-          setAttendeesError(err.response?.data?.msg || 'Failed to load attendee list.');
-        } finally {
-          setFetchingAttendees(false);
-        }
-      } else if (isOrganizer) {
-        setAttendeesDetails([]);
-        setAttendeesError(null);
+    if (isFree) {
+      form.setValue("price", undefined);
+    }
+  }, [isFree, form]);
+
+  useEffect(() => {
+    const fetchEventData = async () => {
+      try {
+        const { data } = await axios.get(`${API_BASE_URL}/events/${id}`);
+        form.reset({
+          title: data.title,
+          date: new Date(data.date),
+          time: data.time,
+          location: data.location,
+          category: data.category,
+          isFree: data.isFree,
+          price: data.price || { amount: 0, currency: 'vnd' },
+          capacity: data.capacity?.toString() || '',
+          description: data.description,
+          image: data.image,
+          schedule: data.schedule || [],
+        });
+      } catch (error) {
+        toast.error("Không thể tải dữ liệu sự kiện.");
+        navigate('/events');
+      } finally {
+        setIsLoading(false);
       }
     };
+    if (id) {
+      fetchEventData();
+    }
+  }, [id, form, navigate]);
 
-    fetchAttendees();
-  }, [registeredAttendees, isOrganizer]);
+  const onSubmit = async (values: z.infer<typeof eventSchema>) => {
+    setIsSubmitting(true);
+    try {
+      const token = localStorage.getItem('token');
+      console.log("Submitting values:", values);
 
+      const eventData = {
+        ...values,
+        date: values.date.toISOString(),
+        price: values.isFree
+          ? undefined
+          : {
+              amount: Number(values.price?.amount || 0),
+              currency: values.price?.currency || 'vnd',
+            },
+      };
 
+      await axios.put(`${API_BASE_URL}/events/${id}`, eventData, {
+        headers: { 'x-auth-token': token }
+      });
+      toast.success("Cập nhật sự kiện thành công!");
+      navigate(`/events/${id}`, { state: { fromEdit: true } });
+    } catch (error: any) {
+      console.error("Lỗi khi cập nhật:", error);
+      toast.error(error.response?.data?.msg || error.message || "Cập nhật sự kiện thất bại.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const addScheduleItem = () => {
+    const schedule = form.getValues('schedule') || [];
+    form.setValue('schedule', [...schedule, { time: '', title: '', description: '' }]);
+  };
+
+  const removeScheduleItem = (index: number) => {
+    const schedule = form.getValues('schedule') || [];
+    form.setValue('schedule', schedule.filter((_, i) => i !== index));
+  };
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Đang tải dữ liệu sự kiện...</div>;
+  }
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Main content */}
-        <div className="lg:w-2/3">
-          {/* Header */}
-          <div className="mb-8">
-            <Badge className="mb-4 bg-event-purple">{category}</Badge>
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">{title}</h1>
-            <div className="flex flex-wrap items-center text-gray-700 mb-6 gap-x-6 gap-y-2">
-              <div className="flex items-center">
-                <Calendar className="h-5 w-5 mr-2 text-event-purple" />
-                <span>{date}</span>
-              </div>
-              <div className="flex items-center">
-                <Clock className="h-5 w-5 mr-2 text-event-purple" />
-                <span>{time}</span>
-              </div>
-            </div>
-            <div className="flex items-center text-gray-700 mb-6">
-              <MapPin className="h-5 w-5 mr-2 text-event-purple" />
-              <span>{location} • {address}</span>
-            </div>
-            {organizer && (
-              <div className="flex items-center space-x-2">
-                {organizerDisplayImage ? (
-                  <img
-                    src={organizerDisplayImage}
-                    alt={organizer.name}
-                    className="h-10 w-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                    <UserIcon className="h-6 w-6 text-gray-500" />
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm text-gray-500">Tổ chức bởi</p>
-                  <p className="font-medium">{organizer.name}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Event image */}
-          <div className="mb-8">
-            <img
-              src={image}
-              alt={title}
-              className="w-full h-auto max-h-[500px] object-cover rounded-lg border"
-            />
-          </div>
-
-          {/* Tabs */}
-          <Tabs defaultValue="about">
-            <TabsList className={`grid w-full mb-8 ${isOrganizer ? 'grid-cols-4' : 'grid-cols-3'}`}>
-              <TabsTrigger value="about">Thông tin</TabsTrigger>
-              <TabsTrigger value="schedule">Các mốc sự kiện</TabsTrigger>
-              <TabsTrigger value="organizer">Ban tổ chức</TabsTrigger>
-              {isOrganizer && (
-                <TabsTrigger value="attendees">Người đăng kí({registeredAttendeesCount})</TabsTrigger>
-              )}
-            </TabsList>
-
-            <TabsContent value="about" className="space-y-6">
-              <div className="prose max-w-none">
-                <h3 className="text-xl font-semibold mb-4">Thông báo</h3>
-                <p className="text-gray-700 whitespace-pre-wrap">{longDescription || description}</p>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="schedule" className="space-y-6">
-              <h3 className="text-xl font-semibold mb-4">Thời gian các hoạt động</h3>
-              {schedule && schedule.length > 0 ? (
-                <div className="border-l-2 border-event-purple pl-6 space-y-8">
-                  {schedule.map((item, index) => (
-                    <div key={index} className="relative">
-                      <div className="absolute top-1 left-[-1.8rem] w-4 h-4 rounded-full bg-event-purple border-4 border-white"></div>
-                      <div>
-                        <p className="text-sm text-gray-500 font-medium">{item.time}</p>
-                        <h4 className="font-semibold text-lg">{item.title}</h4>
-                        {item.description && (
-                          <p className="text-gray-600 text-sm mt-1">{item.description}</p>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <main className="container mx-auto px-4 py-12">
+        <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl shadow-lg">
+          <h1 className="text-3xl font-bold mb-8">Chỉnh sửa sự kiện</h1>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                        <FormField
+                        control={form.control}
+                        name="title"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Tên sự kiện</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Ví dụ: Đêm nhạc Acoustic" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
                         )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 px-4 bg-gray-50 rounded-lg">
-                  <p className="text-gray-600">Tạm thời chưa có mốc thời gian cho sự kiện</p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="organizer">
-              <div className="space-y-4">
-                {organizer && (
-                  <>
-                    <div className="flex items-center space-x-3 mb-4">
-                      {organizerDisplayImage ? (
-                        <img
-                          src={organizerDisplayImage}
-                          alt={organizer.name}
-                          className="h-16 w-16 rounded-full object-cover"
                         />
-                      ) : (
-                        <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center">
-                          <UserIcon className="h-10 w-10 text-gray-500" />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                            control={form.control}
+                            name="date"
+                            render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Ngày diễn ra</FormLabel>
+                                <Popover>
+                                <PopoverTrigger asChild>
+                                    <FormControl>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {field.value ? format(field.value, "PPP") : <span>Chọn ngày</span>}
+                                    </Button>
+                                    </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) } initialFocus />
+                                </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="time"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Thời gian</FormLabel>
+                                <FormControl>
+                                <Input placeholder="Ví dụ: 7:00 PM - 9:00 PM" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
                         </div>
-                      )}
-                      <div>
-                        <h3 className="font-semibold text-lg">{organizer.name}</h3>
-                        <p className="text-sm text-gray-500">Người tổ chức</p>
-                      </div>
-                    </div>
-                    <p className="text-gray-700">{organizer.description || `Meet ${organizer.name}, the organizer of this event.`}</p>
-                    <Link to={`/organizers/${organizerId}`}>
-                        <Button variant="outline" className="mt-4">
-                            Xem hồ sơ
-                            <ChevronRight className="ml-2 h-4 w-4" />
+
+                        <FormField
+                        control={form.control}
+                        name="location"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Địa điểm</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Ví dụ: Quận 1, TP.HCM" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+
+                        <FormField
+                        control={form.control}
+                        name="category"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Danh mục</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Chọn danh mục cho sự kiện" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                <SelectItem value="Music">Âm nhạc</SelectItem>
+                                <SelectItem value="Food & Drink">Ẩm thực</SelectItem>
+                                <SelectItem value="Business">Kinh doanh</SelectItem>
+                                <SelectItem value="Education">Giáo dục</SelectItem>
+                                <SelectItem value="Gaming">Trò chơi</SelectItem>
+                                <SelectItem value="Social">Xã hội</SelectItem>
+                                
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+
+                        <div className="space-y-4 border-t pt-6">
+                            <FormField
+                                control={form.control}
+                                name="isFree"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-4 border rounded-lg shadow-sm">
+                                        <FormControl>
+                                            <Checkbox
+                                              checked={field.value}
+                                              onCheckedChange={(checked) => field.onChange(!!checked)}
+                                            />
+                                        </FormControl>
+                                        <FormLabel className="font-normal">Sự kiện này miễn phí</FormLabel>
+                                    </FormItem>
+                                )}
+                            />
+                            
+                            {!isFree && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <FormField
+                                        control={form.control}
+                                        name="price.amount"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Giá vé</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" placeholder="100000" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="price.currency"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Đơn vị</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Chọn đơn vị" /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="vnd">VND</SelectItem>
+                                                <SelectItem value="usd">USD</SelectItem>
+                                            </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        <FormField
+                            control={form.control}
+                            name="capacity"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Sức chứa (tùy chọn)</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="100" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Mô tả sự kiện</FormLabel>
+                            <FormControl>
+                                <Textarea placeholder="Nói vài điều về sự kiện của bạn..." className="min-h-[150px]" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+
+                        <FormField
+                        control={form.control}
+                        name="image"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>URL Hình ảnh sự kiện</FormLabel>
+                            <FormControl>
+                                <Input placeholder="https://..." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+
+                        <div className="space-y-4 border-t pt-6">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-lg font-semibold">Lịch trình sự kiện</h3>
+                            <Button type="button" variant="outline" size="sm" onClick={addScheduleItem}>
+                            <Plus className="h-4 w-4 mr-2" /> Thêm
+                            </Button>
+                        </div>
+                        <div className="space-y-4">
+                            {form.watch("schedule")?.map((item, index) => (
+                                <div key={index} className="flex gap-4 items-start border p-4 rounded-lg bg-gray-50">
+                                    <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name={`schedule.${index}.time`}
+                                            render={({ field }) => <FormItem><FormLabel>Thời gian</FormLabel><FormControl><Input placeholder="9:00 AM" {...field} /></FormControl><FormMessage /></FormItem>}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name={`schedule.${index}.title`}
+                                            render={({ field }) => <FormItem><FormLabel>Tiêu đề</FormLabel><FormControl><Input placeholder="Khai mạc" {...field} /></FormControl><FormMessage /></FormItem>}
+                                        />
+                                        <div className="sm:col-span-2">
+                                        <FormField
+                                            control={form.control}
+                                            name={`schedule.${index}.description`}
+                                            render={({ field }) => <FormItem><FormLabel>Mô tả (tùy chọn)</FormLabel><FormControl><Textarea rows={2} {...field} /></FormControl><FormMessage /></FormItem>}
+                                        />
+                                        </div>
+                                    </div>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeScheduleItem(index)}><X className="h-4 w-4 text-gray-500" /></Button>
+                                </div>
+                            ))}
+                        </div>
+                        </div>
+
+                        <div className="flex justify-end gap-4 pt-8 border-t">
+                        <Button type="button" variant="outline" onClick={() => navigate(`/events/${id}`)}>Hủy</Button>
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? "Đang cập nhật..." : "Cập nhật sự kiện"}
                         </Button>
-                    </Link>
-                  </>
-                )}
-              </div>
-            </TabsContent>
-
-            {isOrganizer && (
-              <TabsContent value="attendees">
-                <h3 className="text-xl font-semibold mb-4">Người đăng kí</h3>
-                {fetchingAttendees ? (
-                  <p>Đang tải...</p>
-                ) : attendeesError ? (
-                  <p className="text-red-500">{attendeesError}</p>
-                ) : attendeesDetails.length > 0 ? (
-                  <ul className="space-y-3">
-                    {attendeesDetails.map((attendee) => (
-                      <li key={attendee.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-md">
-                        <UserIcon className="h-5 w-5 text-gray-500" />
-                        <div>
-                          <p className="font-medium">{attendee.username}</p>
-                          <p className="text-sm text-gray-600 flex items-center">
-                            <Mail className="h-4 w-4 mr-1" />
-                            {attendee.email}
-                          </p>
                         </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-600">Chưa có người đăng kí.</p>
-                )}
-              </TabsContent>
-            )}
-          </Tabs>
-        </div>
-
-        {/* Sidebar */}
-        <div className="lg:w-1/3">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-24">
-            <div className="mb-6 pb-6 border-b border-gray-100">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <p className="text-sm text-gray-500">Giá tiền</p>
-                  <p className="text-xl font-semibold">
-                    {price} {/* Giá hiển thị đã được format */}
-                  </p>
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setLiked(!liked)}
-                    className={`p-2 rounded-full border ${liked ? 'bg-red-50 border-red-200 text-red-500' : 'bg-gray-50 border-gray-200 text-gray-400'} hover:bg-gray-100 transition-colors`}
-                  >
-                    <Heart className={`h-5 w-5 ${liked ? 'fill-current' : ''}`} />
-                  </button>
-                  <button className="p-2 rounded-full bg-gray-50 border border-gray-200 text-gray-400 hover:bg-gray-100">
-                    <Share2 className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-              
-              {!isOrganizer ? (
-                <>
-                  {/* Mã giảm giá chỉ hiển thị cho sự kiện CÓ PHÍ */}
-                  {!isFree && ( // Dùng isFree thay vì price !== 'Free'
-                    <div className="mb-4">
-                      <label htmlFor="discountCode" className="block text-sm font-medium text-gray-700 mb-2">
-                        Mã giảm giá
-                      </label>
-                      <div className="relative">
-                        <Tag className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                          id="discountCode"
-                          type="text"
-                          placeholder="Nhập mã giảm giá (tùy chọn)"
-                          className="pl-10"
-                          value={discountCode}
-                          onChange={(e) => setDiscountCode(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <Button
-                    className="w-full bg-event-purple hover:bg-event-dark-purple"
-                    onClick={() => onRegister(discountCode)}
-                    disabled={isRegistered}
-                  >
-                    <Ticket className="mr-2 h-5 w-5" />
-                    {isRegistered
-                      ? 'Đã đăng ký'
-                      : (isFree ? 'Đăng ký miễn phí' : 'Mua vé')} {/* Thay đổi văn bản nút */}
-                  </Button>
-                </>
-              ) : (
-                <div className="text-center p-4 bg-gray-100 rounded-md">
-                  <p className="text-sm font-medium text-gray-700">Bạn là người tổ chức sự kiện này.</p>
-                </div>
-              )}
-              
+                    </form>
+                </Form>
             </div>
-
-            <div className="space-y-4">
-              <h3 className="font-semibold">Thông tin sự kiện</h3>
-              <div className="flex items-start space-x-3">
-                <Users className="h-5 w-5 text-gray-500 mt-0.5" />
-                <div>
-                  <p className="font-medium">Số lượng đăng kí</p>
-                  <p className="text-sm text-gray-600">
-                    {registeredAttendeesCount} người đã đăng ký {capacity ? ` / ${capacity} người` : ""}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <Calendar className="h-5 w-5 text-gray-500 mt-0.5" />
-                <div>
-                  <p className="font-medium">Thời gian</p>
-                  <p className="text-sm text-gray-600">{date}</p>
-                  <p className="text-sm text-gray-600">{time}</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <MapPin className="h-5 w-5 text-gray-500 mt-0.5" />
-                <div>
-                  <p className="font-medium">Địa điểm</p>
-                  <p className="text-sm text-gray-600">{location}</p>
-                  <p className="text-sm text-gray-600">{address}</p>
-                </div>
-              </div>
-              <div className="bg-amber-50 border border-amber-200 rounded-md p-4 flex items-start space-x-3">
-                <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
-                <div>
-                  <p className="font-medium text-amber-800">Chính sách hoàn trả</p>
-                  <p className="text-sm text-amber-700">
-                    Hoàn trả trong vòng 7 ngày trước khi diễn ra sự kiện.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        </main>
+        <Footer />
     </div>
   );
 };
 
-export default EventDetail;
+export default EditEvent;

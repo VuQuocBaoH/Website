@@ -66,9 +66,11 @@ const EventPage = () => {
     window.dispatchEvent(new Event('notificationAdded'));
   };
 
+  // CẬP NHẬT: Kiểm tra đăng ký bằng cách tìm vé của người dùng trong eventData.tickets
   const checkRegistrationStatus = (eventData: any, user: any) => {
-    if (user && eventData?.registeredAttendees) {
-      const isUserRegistered = eventData.registeredAttendees.includes(user.id);
+    if (user && eventData?.tickets) {
+      // eventData.tickets là mảng các Ticket objects (vì backend đã populate tickets.userId)
+      const isUserRegistered = eventData.tickets.some((ticket: any) => ticket.userId === user.id);
       setIsRegistered(isUserRegistered);
     } else {
       setIsRegistered(false);
@@ -123,9 +125,7 @@ const EventPage = () => {
           location: eventData.location,
           address: eventData.address || eventData.location,
           image: eventData.image,
-          // Đảm bảo truyền isFree từ backend xuống frontend
-          isFree: eventData.isFree, 
-          // Format giá cho hiển thị. Backend sẽ xử lý price object.
+          isFree: eventData.isFree, // <-- Đảm bảo thuộc tính này được truyền vào
           price: eventData.isFree
             ? 'Free'
             : `${eventData.price?.amount?.toLocaleString()} ${eventData.price?.currency?.toUpperCase()}`,
@@ -134,8 +134,9 @@ const EventPage = () => {
           organizerId: eventData.organizerId,
           description: eventData.description,
           longDescription: eventData.longDescription,
-          registeredAttendeesCount: eventData.registeredAttendees ? eventData.registeredAttendees.length : 0,
-          registeredAttendees: eventData.registeredAttendees || [],
+          // CẬP NHẬT: registeredAttendeesCount sẽ là số lượng tickets
+          registeredAttendeesCount: eventData.tickets ? eventData.tickets.length : 0, 
+          // XÓA DÒNG NÀY: registeredAttendees: eventData.registeredAttendees || [],
           capacity: eventData.capacity,
           schedule: eventData.schedule || [],
         });
@@ -151,7 +152,7 @@ const EventPage = () => {
                 time: event.time,
                 location: event.location,
                 image: event.image,
-                price: event.isFree ? 'Free' : `${event.price?.amount?.toLocaleString()} ${event.price?.currency?.toUpperCase()}`, // Cập nhật cách lấy price cho EventCard
+                price: event.isFree ? 'Free' : `${event.price?.amount?.toLocaleString()} ${event.price?.currency?.toUpperCase()}`,
                 category: event.category,
                 organizer: event.organizer?.name || 'Unknown Organizer'
             }));
@@ -191,28 +192,23 @@ const EventPage = () => {
       let response;
       // Dựa vào thuộc tính `isFree` của `currentEvent` để quyết định API gọi
       if (currentEvent.isFree) { 
-        // Gọi API đăng ký sự kiện miễn phí
         response = await axios.post(
           `${API_BASE_URL}/events/${id}/register`,
-          { discountCode }, // discountCode (nếu có)
+          { discountCode },
           { headers: { 'x-auth-token': token } }
         );
-        toast.success(response.data.msg || 'Successfully registered for the free event!');
-      } else {
-        // Gọi API mua vé sự kiện có phí (giả lập thanh toán)
+      } else { // Sự kiện có phí
         response = await axios.post(
           `${API_BASE_URL}/events/${id}/purchase-ticket`,
-          { discountCode }, // discountCode (nếu có)
+          { discountCode },
           { headers: { 'x-auth-token': token } }
         );
-        toast.success(response.data.msg || 'Ticket purchase initiated!');
-        // Trong thực tế, bạn có thể kiểm tra response.data.redirectUrl và chuyển hướng tại đây
       }
+
+      toast.success(response.data.msg);
       
-      // Cập nhật lại dữ liệu event sau khi đăng ký/mua vé thành công
       setRefreshKey(prevKey => prevKey + 1);
 
-      // Thêm thông báo
       if (userId && currentEvent?.title) {
         addNotification(userId, `Bạn đã ${currentEvent.isFree ? 'đăng ký' : 'mua vé'} thành công sự kiện: "${currentEvent.title}"!`);
       }
@@ -257,15 +253,21 @@ const EventPage = () => {
       <main className="flex-grow">
         {currentEvent ? (
           <>
+            {/* TRUYỀN THUỘC TÍNH isFree XUỐNG EventDetail */}
             <EventDetail
                 {...currentEvent}
                 onRegister={handleRegisterForEvent}
                 isRegistered={isRegistered}
                 isOrganizer={isOrganizer}
+                isFree={currentEvent.isFree}
             />
 
             {isOrganizer && (
               <div className="container mx-auto px-4 py-4 flex justify-end gap-4 border-t">
+                 {/* Nút để tổ chức viên xem danh sách người đăng kí/check-in */}
+                <Button variant="outline" onClick={() => navigate(`/event/${id}/attendees`)}>
+                  Quản lý người tham gia
+                </Button>
                 <Button variant="outline" onClick={handleEditEvent}>
                   Chỉnh sửa sự kiện
                 </Button>

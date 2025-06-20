@@ -1,3 +1,4 @@
+// src/models/Event.ts
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IOrganizer {
@@ -32,8 +33,8 @@ export interface IEvent extends Document {
   description: string;
   longDescription?: string;
   capacity?: number;
-  registeredAttendees: mongoose.Types.ObjectId[];
-  tickets: mongoose.Types.ObjectId[];
+  // registeredAttendees: mongoose.Types.ObjectId[]; 
+  tickets: mongoose.Types.ObjectId[]; 
   status: 'active' | 'cancelled' | 'completed';
   schedule?: IScheduleItem[];
 }
@@ -79,8 +80,8 @@ const eventSchema = new mongoose.Schema({
       description: String,
     },
   ],
-  registeredAttendees: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-  tickets: [{ type: mongoose.Schema.Types.ObjectId, ref: "Ticket" }],
+  // tickets: [{ type: mongoose.Schema.Types.ObjectId, ref: "Ticket" }], // 
+  tickets: [{ type: mongoose.Schema.Types.ObjectId, ref: "Ticket" }], //
   isFeatured: { type: Boolean, default: false },
   isUpcoming: { type: Boolean, default: false },
   status: { type: String, default: "active" },

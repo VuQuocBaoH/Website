@@ -1,7 +1,9 @@
+// src/components/layout/Navbar.tsx
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Menu, X, Calendar, User, Search, LogOut, Bell, Settings } from "lucide-react"; // Import Bell icon
+import { Menu, X, Calendar, User, Search, LogOut, Bell, Settings, Ticket } from "lucide-react"; // Import Ticket icon
+
 
 // Định nghĩa kiểu cho một thông báo
 interface AppNotification {
@@ -16,13 +18,12 @@ const Navbar = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [isAdminUser, setIsAdminUser] = useState(false);
-  const [notifications, setNotifications] = useState<AppNotification[]>([]); // State cho thông báo
-  const [unreadCount, setUnreadCount] = useState(0); // State cho số thông báo chưa đọc
-  const [showNotifications, setShowNotifications] = useState(false); // State để hiển thị/ẩn dropdown thông báo
-  const notificationRef = useRef<HTMLDivElement>(null); // Ref để đóng dropdown khi click ra ngoài
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // Hàm để quản lý notifications trong localStorage theo user ID
   const getNotificationsForUser = (userId: string): AppNotification[] => {
     const stored = localStorage.getItem(`notifications_${userId}`);
     return stored ? JSON.parse(stored) : [];
@@ -34,7 +35,7 @@ const Navbar = () => {
 
   const markNotificationAsRead = (userId: string, notifId: string) => {
     const currentNotifs = getNotificationsForUser(userId);
-    const updatedNotifs = currentNotifs.map(n => 
+    const updatedNotifs = currentNotifs.map(n =>
       n.id === notifId ? { ...n, read: true } : n
     );
     saveNotificationsForUser(userId, updatedNotifs);
@@ -50,7 +51,6 @@ const Navbar = () => {
     setUnreadCount(0);
   };
 
-  // Click outside handler for notifications dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
@@ -75,7 +75,6 @@ const Navbar = () => {
           setIsLoggedIn(true);
           setUsername(user.username || user.email);
           setIsAdminUser(user.role === 'admin');
-          // Load notifications for the logged-in user
           const userNotifications = getNotificationsForUser(user.id);
           setNotifications(userNotifications);
           setUnreadCount(userNotifications.filter(n => !n.read).length);
@@ -84,22 +83,21 @@ const Navbar = () => {
           setIsLoggedIn(false);
           setUsername(null);
           setIsAdminUser(false);
-          setNotifications([]); // Clear notifications on error
+          setNotifications([]);
           setUnreadCount(0);
         }
       } else {
         setIsLoggedIn(false);
         setUsername(null);
         setIsAdminUser(false);
-        setNotifications([]); // Clear notifications when logged out
+        setNotifications([]);
         setUnreadCount(0);
       }
     };
 
     checkLoginStatus();
-    // Add event listener for custom 'notificationAdded' event
-    window.addEventListener('notificationAdded', checkLoginStatus); // Re-check status and load new notifs
-    window.addEventListener('storage', checkLoginStatus); // Listen to localStorage changes
+    window.addEventListener('notificationAdded', checkLoginStatus);
+    window.addEventListener('storage', checkLoginStatus);
     
     return () => {
       window.removeEventListener('notificationAdded', checkLoginStatus);
@@ -114,23 +112,22 @@ const Navbar = () => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    // Clear user-specific notifications from localStorage on logout
-    const userString = localStorage.getItem('user'); // User object might still be in localStorage here
+    const userString = localStorage.getItem('user');
     if (userString) {
         try {
             const user = JSON.parse(userString);
-            localStorage.removeItem(`notifications_${user.id}`); // Xóa thông báo của user đó
+            localStorage.removeItem(`notifications_${user.id}`);
         } catch (e) {
             console.error("Error parsing user data during logout clean-up", e);
         }
     }
     setIsLoggedIn(false);
     setUsername(null);
-    setIsAdminUser(false); // Reset admin state on logout
+    setIsAdminUser(false);
     setNotifications([]);
     setUnreadCount(0);
     navigate('/signin');
-    window.dispatchEvent(new Event('storage')); // Kích hoạt sự kiện storage để các tab khác cũng cập nhật
+    window.dispatchEvent(new Event('storage'));
   };
 
   const handleNotificationClick = (notifId: string) => {
@@ -143,12 +140,10 @@ const Navbar = () => {
         console.error("Error marking notification as read", e);
       }
     }
-    // Bạn có thể thêm logic điều hướng hoặc hiển thị chi tiết thông báo ở đây
   };
 
   const toggleNotificationsDropdown = () => {
     setShowNotifications(prev => !prev);
-    // Nếu đang mở dropdown, đánh dấu tất cả thông báo hiển thị là đã đọc
     if (!showNotifications && isLoggedIn && notifications.length > 0) {
       const userString = localStorage.getItem('user');
       if (userString) {
@@ -180,14 +175,7 @@ const Navbar = () => {
             {isLoggedIn && (
               <Link to="/create" className="text-gray-600 hover:text-event-purple transition-colors">Tạo sự kiện</Link>
             )}
-            {/* <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search events"
-                className="pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-event-purple/20 w-[180px]"
-              />
-            </div> */}
+            {/* Search input (commented out) */}
           </div>
 
           {/* Auth Buttons / User Info / Notifications - Desktop */}
@@ -202,7 +190,15 @@ const Navbar = () => {
             )}
 
             {isLoggedIn ? (
-              <> {/* <-- THÊM FRAGMENT NÀY */}
+              <> {/* This Fragment is correctly placed */}
+                {/* Vé của tôi Button */}
+                <Button variant="ghost" size="sm" asChild>
+                  {/* Sửa lỗi: đảm bảo Link chỉ có MỘT child */}
+                  <Link to="/my-tickets" className="flex items-center">
+                    <Ticket className="h-5 w-5 text-gray-600 mr-2" /> Vé của tôi
+                  </Link>
+                </Button>
+
                 <div className="relative" ref={notificationRef}>
                   <Button variant="ghost" size="sm" onClick={toggleNotificationsDropdown} className="relative">
                     <Bell className="h-5 w-5 text-gray-600" />
@@ -237,7 +233,8 @@ const Navbar = () => {
                 </div>
                 {/* Profile Link */}
                 <Button variant="ghost" size="sm" asChild>
-                  <Link to="/profile">
+                  {/* Sửa lỗi: đảm bảo Link chỉ có MỘT child */}
+                  <Link to="/profile" className="flex items-center">
                     <User className="h-5 w-5 text-gray-600 mr-1" />
                     <span>Chào, {username}!</span>
                   </Link>
@@ -283,7 +280,15 @@ const Navbar = () => {
                 </Button>
               )}
               {isLoggedIn && (
-                <> {/* <-- THÊM FRAGMENT NÀY */}
+                <> {/* This Fragment is correctly placed */}
+                  {/* Vé của tôi Button (Mobile) */}
+                  <Button variant="ghost" size="sm" asChild className="w-full justify-start px-2">
+                    {/* Sửa lỗi: đảm bảo Link chỉ có MỘT child */}
+                    <Link to="/my-tickets" onClick={toggleMenu} className="flex items-center">
+                      <Ticket className="h-5 w-5 text-gray-600 mr-2" /> Vé của tôi
+                    </Link>
+                  </Button>
+
                   <div className="relative">
                     <Button variant="ghost" size="sm" onClick={toggleNotificationsDropdown} className="relative w-full justify-start px-2">
                       <Bell className="h-5 w-5 text-gray-600 mr-2" />
@@ -319,16 +324,9 @@ const Navbar = () => {
                   </div>
                 </>
               )}
-              {isAdminUser && (
-                <Button variant="ghost" size="sm" asChild className="w-full justify-start px-2">
-                  <Link to="/admin" onClick={toggleMenu}>
-                    <Settings className="h-5 w-5 text-gray-600 mr-2" /> Admin Dashboard
-                  </Link>
-                </Button>
-              )}
               {isLoggedIn && (
                 <Button variant="ghost" size="sm" asChild className="w-full justify-start px-2">
-                  <Link to="/profile" onClick={toggleMenu}>
+                  <Link to="/profile" onClick={toggleMenu} className="flex items-center">
                     <User className="h-5 w-5 text-gray-600 mr-2" />
                     <span>Hồ sơ</span>
                   </Link>

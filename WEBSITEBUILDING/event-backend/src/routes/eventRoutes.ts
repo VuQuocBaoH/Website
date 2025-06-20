@@ -1,3 +1,4 @@
+// src/routes/eventRoutes.ts
 import { Router } from 'express';
 import {
   createEvent,
@@ -11,23 +12,37 @@ import {
   getUpcomingEvents,
   getMyEvents,
   getEventsByOrganizer,
-  purchaseTicket
+  purchaseTicket,
+  getMyTickets,
+  getEventTickets 
 } from '../controllers/eventController';
-import authMiddleware from '../middleware/authMiddleware'; 
+import authMiddleware from '../middleware/authMiddleware';
 
 const router = Router();
 
-router.get('/', getEvents);
+router.get('/my-tickets', authMiddleware, getMyTickets); 
+router.get('/my-events', authMiddleware, getMyEvents);
+
+
 router.get('/featured', getFeaturedEvents);
 router.get('/upcoming', getUpcomingEvents);
-router.get('/my-events', authMiddleware, getMyEvents); 
+
 router.get('/organizer/:organizerId', getEventsByOrganizer);
+
+router.get('/:id/tickets', authMiddleware, getEventTickets); 
+
+router.get('/', getEvents);
+
 router.get('/:id', getEventById);
+
+
 router.post('/', authMiddleware, createEvent);
 router.put('/:id', authMiddleware, updateEvent);
 router.delete('/:id', authMiddleware, deleteEvent);
+
 router.post('/:id/register', authMiddleware, registerForEvent);
 router.post('/:id/purchase-ticket', authMiddleware, purchaseTicket);
 router.post('/:id/unregister', authMiddleware, unregisterFromEvent);
+
 
 export default router;
