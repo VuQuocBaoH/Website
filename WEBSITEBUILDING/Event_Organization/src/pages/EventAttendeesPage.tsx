@@ -1,5 +1,5 @@
 // D:/code/DACNTT2/WEBSITEBUILDING/Event_Organization/src/pages/EventAttendeesPage.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react'; // Thêm useRef
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, CheckCircle, XCircle, Search, ScanLine, AlertCircle } from 'lucide-react';
+// XÓA DÒNG NÀY: import { QrReader } from 'react-qr-reader';
+// THÊM DÒNG NÀY:
+import { Html5QrcodeScanner, Html5QrcodeSupportedFormats, Html5QrcodeResult } from "html5-qrcode";
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -23,7 +26,7 @@ interface AttendeeTicket {
   checkInStatus: 'pending' | 'checkedIn' | 'noShow';
   checkInTime?: string;
   user: {
-    id: string;
+    id: string; // Đây là _id của User từ MongoDB, cần dùng .toString() khi so sánh với user.id từ localStorage
     username: string;
     email: string;
   } | null; // Có thể null nếu user bị xóa
@@ -37,9 +40,12 @@ const EventAttendeesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [scannedTicketCode, setScannedTicketCode] = useState('');
-  const [currentScanResult, setCurrentScanResult] = useState<AttendeeTicket | null>(null);
+  const [scannedTicketCode, setScannedTicketCode] = useState(''); // Dùng cho nhập thủ công và kết quả quét
+  const [currentScanResult, setCurrentScanResult] = useState<AttendeeTicket | null>(null); // Kết quả quét/tìm kiếm hiện tại
   const [scanError, setScanError] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false); // State để kiểm soát bật/tắt camera
+
+  const qrScannerRef = useRef<Html5QrcodeScanner | null>(null); // Ref để giữ instance của Html5QrcodeScanner
 
   useEffect(() => {
     const fetchEventTickets = async () => {
@@ -56,20 +62,29 @@ const EventAttendeesPage = () => {
       }
 
       try {
-        const eventRes = await axios.get(`<span class="math-inline">\{API\_BASE\_URL\}/events/</span>{eventId}`);
+        console.log("DEBUG: Current User from localStorage:", user); 
+        console.log("DEBUG: Current User ID from localStorage:", user.id); 
+
+        const eventRes = await axios.get(`${API_BASE_URL}/events/${eventId}`, {
+          headers: { 'x-auth-token': token },
+        });
         const eventData = eventRes.data;
         setEventTitle(eventData.title);
 
+        console.log("DEBUG: Event Data fetched:", eventData); 
+        console.log("DEBUG: Event Organizer ID:", eventData.organizerId); 
+
         const isUserAdmin = user.role === 'admin';
-        const isUserEventOrganizer = eventData.organizerId && (user.id === eventData.organizerId);
+
+        const isUserEventOrganizer = eventData.organizerId && user.id && (user.id.toString() === eventData.organizerId.toString());
 
         if (!isUserAdmin && !isUserEventOrganizer) {
           toast.error('Bạn không có quyền truy cập trang này.');
-          navigate('/');
+          navigate('/'); 
           return;
         }
 
-        const ticketsRes = await axios.get(`<span class="math-inline">\{API\_BASE\_URL\}/events/</span>{eventId}/tickets`, {
+        const ticketsRes = await axios.get(`${API_BASE_URL}/events/${eventId}/tickets`, {
           headers: { 'x-auth-token': token },
         });
         setAllTickets(ticketsRes.data);
@@ -87,64 +102,158 @@ const EventAttendeesPage = () => {
     }
   }, [eventId, navigate]);
 
+
+  // Logic khởi tạo và dọn dẹp Html5QrcodeScanner
+  useEffect(() => {
+    const readerId = "reader"; // ID của div để render camera
+
+    // Hàm callback khi quét thành công
+    const onScanSuccess = (decodedText: string, decodedResult: Html5QrcodeResult) => {
+      // console.log(`QR Code scanned: ${decodedText}`, decodedResult);
+      setScannedTicketCode(decodedText); // Đưa kết quả quét vào ô input
+      setIsScanning(false); // Tắt camera sau khi quét thành công
+
+      // Ngừng quét sau khi có kết quả
+      if (qrScannerRef.current) {
+        qrScannerRef.current.clear().then(() => {
+          // console.log("QR scanning stopped.");
+        }).catch(err => {
+          console.warn("Failed to stop QR scanning:", err);
+        });
+        qrScannerRef.current = null; // Xóa tham chiếu
+      }
+
+      // Tự động tìm kiếm kết quả trong danh sách vé
+      const foundTicket = allTickets.find(t => t.ticketCode === decodedText);
+      if (foundTicket) {
+        setCurrentScanResult(foundTicket);
+        setScanError(null);
+      } else {
+        setScanError('Không tìm thấy vé với mã này cho sự kiện này.');
+      }
+    };
+
+    // Hàm callback khi quét lỗi
+    const onScanError = (errorMessage: string) => {
+      // console.error(`QR Code scan error = ${errorMessage}`);
+      // Chỉ setScanError cho các lỗi nghiêm trọng, bỏ qua lỗi "NotAllowedError" ban đầu
+      // if (errorMessage !== "NotAllowedError" && !errorMessage.includes("Permission denied")) {
+      //   setScanError('Lỗi khi quét QR: ' + errorMessage);
+      // }
+    };
+
+
+    if (isScanning && !qrScannerRef.current) {
+      // Khởi tạo scanner nếu đang quét và chưa có instance
+      const scanner = new Html5QrcodeScanner(
+        readerId,
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+          // enableTorch: true, // Nếu muốn bật đèn flash (có thể cần quyền)
+        },
+        /* verbose= */ false
+      );
+      scanner.render(onScanSuccess, onScanError);
+      qrScannerRef.current = scanner; // Lưu tham chiếu
+
+    } else if (!isScanning && qrScannerRef.current) {
+      // Dọn dẹp scanner khi không quét nữa
+      qrScannerRef.current.clear().then(() => {
+        // console.log("QR scanning stopped via useEffect cleanup.");
+      }).catch(err => {
+        console.warn("Failed to stop QR scanning via useEffect cleanup:", err);
+      });
+      qrScannerRef.current = null;
+    }
+
+    // Hàm cleanup của useEffect: đảm bảo scanner được giải phóng khi component unmount
+    return () => {
+      if (qrScannerRef.current) {
+        qrScannerRef.current.clear().then(() => {
+          // console.log("QR scanning stopped on component unmount.");
+        }).catch(err => {
+          console.warn("Failed to stop QR scanning on component unmount:", err);
+        });
+        qrScannerRef.current = null;
+      }
+    };
+  }, [isScanning, allTickets]); // allTickets được thêm vào dependency để đảm bảo logic tìm vé hoạt động với dữ liệu mới nhất
+
+
+  // Hàm xử lý check-in
   const handleCheckIn = async (ticketCode: string) => {
     const token = localStorage.getItem('token');
     if (!token) {
-      toast.error('Authentication required.');
+      toast.error('Xác thực yêu cầu.');
       return;
     }
     try {
-      const response = await axios.post(`${API_BASE_URL}/tickets/check-in`,
+      const response = await axios.post(`${API_BASE_URL}/events/tickets/check-in`, // Đảm bảo đúng endpoint
         { ticketCode, eventId },
         { headers: { 'x-auth-token': token } }
       );
       toast.success(response.data.msg);
+      // Cập nhật trạng thái vé trong state mà không cần fetch lại toàn bộ
       setAllTickets(prev => prev.map(ticket =>
         ticket.ticketCode === ticketCode ? { ...ticket, checkInStatus: 'checkedIn', checkInTime: new Date().toISOString() } : ticket
       ));
+      // Cập nhật kết quả quét hiện tại nếu có
       setCurrentScanResult(prev => prev ? { ...prev, checkInStatus: 'checkedIn', checkInTime: new Date().toISOString() } : null);
+      // setScannedTicketCode(''); // Có thể giữ lại kết quả trong input sau check-in
+      setScanError(null); // Xóa lỗi quét nếu có
     } catch (err: any) {
       console.error('Check-in error:', err.response?.data || err.message);
-      toast.error(err.response?.data?.msg || 'Failed to check in ticket.');
-      setScanError(err.response?.data?.msg || 'Failed to check in ticket.');
+      toast.error(err.response?.data?.msg || 'Check-in thất bại.');
+      setScanError(err.response?.data?.msg || 'Check-in thất bại.');
     }
   };
 
+  // Hàm xử lý check-out
   const handleCheckOut = async (ticketCode: string) => {
     const token = localStorage.getItem('token');
     if (!token) {
-      toast.error('Authentication required.');
+      toast.error('Xác thực yêu cầu.');
       return;
     }
     try {
-      const response = await axios.post(`${API_BASE_URL}/tickets/check-out`,
+      const response = await axios.post(`${API_BASE_URL}/events/tickets/check-out`, // Đảm bảo đúng endpoint
         { ticketCode, eventId },
         { headers: { 'x-auth-token': token } }
       );
       toast.success(response.data.msg);
+      // Cập nhật trạng thái vé trong state mà không cần fetch lại toàn bộ
       setAllTickets(prev => prev.map(ticket =>
         ticket.ticketCode === ticketCode ? { ...ticket, checkInStatus: 'pending', checkInTime: undefined } : ticket
       ));
+      // Cập nhật kết quả quét hiện tại nếu có
       setCurrentScanResult(prev => prev ? { ...prev, checkInStatus: 'pending', checkInTime: undefined } : null);
+      // setScannedTicketCode(''); // Có thể giữ lại kết quả trong input sau check-out
+      setScanError(null); // Xóa lỗi quét nếu có
     } catch (err: any) {
       console.error('Check-out error:', err.response?.data || err.message);
-      toast.error(err.response?.data?.msg || 'Failed to check out ticket.');
-      setScanError(err.response?.data?.msg || 'Failed to check out ticket.');
+      toast.error(err.response?.data?.msg || 'Check-out thất bại.');
+      setScanError(err.response?.data?.msg || 'Check-out thất bại.');
     }
   };
 
+  // Hàm xử lý khi quét QR hoặc nhập mã thủ công và nhấn nút tìm kiếm
   const handleScanOrSearch = async () => {
     setScanError(null);
-    setCurrentScanResult(null);
+    setCurrentScanResult(null); // Reset kết quả trước khi tìm kiếm mới
 
     if (!scannedTicketCode) {
       setScanError('Vui lòng nhập mã vé hoặc quét QR.');
       return;
     }
 
+    // Tìm vé trong danh sách đã fetch
     const foundTicket = allTickets.find(t => t.ticketCode === scannedTicketCode);
     if (foundTicket) {
       setCurrentScanResult(foundTicket);
+      // Nếu tìm thấy, đảm bảo các trường hợp lỗi trước đó bị xóa
+      setScanError(null);
     } else {
       setScanError('Không tìm thấy vé với mã này cho sự kiện này.');
     }
@@ -162,6 +271,7 @@ const EventAttendeesPage = () => {
   if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải danh sách người tham gia...</div>;
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
 
+  // Render trang nếu không có lỗi và đã tải xong
   return (
     <div className="min-h-screen flex flex-col bg-gray-50/50">
       <Navbar />
@@ -189,10 +299,19 @@ const EventAttendeesPage = () => {
               <Button onClick={handleScanOrSearch}>
                 <Search className="h-4 w-4 mr-2" /> Tìm kiếm
               </Button>
-              <Button variant="outline" disabled>
-                <ScanLine className="h-4 w-4 mr-2" /> Quét QR
+              <Button variant="outline" onClick={() => setIsScanning(prev => !prev)}>
+                <ScanLine className="h-4 w-4 mr-2" /> {isScanning ? 'Dừng quét' : 'Quét QR'}
               </Button>
             </div>
+
+            {/* HIỂN THỊ CAMERA ĐỂ QUÉT QR */}
+            {isScanning && (
+              <div className="mb-4 flex flex-col items-center">
+                <p className="text-gray-600 mb-2">Đặt mã QR vào giữa khung hình:</p>
+                {/* DIV NÀY SẼ LÀ NƠI Html5QrcodeScanner render video feed */}
+                <div id="reader" style={{ width: '100%', maxWidth: '300px' }}></div>
+              </div>
+            )}
 
             {scanError && (
               <div className="text-red-500 flex items-center mb-4">

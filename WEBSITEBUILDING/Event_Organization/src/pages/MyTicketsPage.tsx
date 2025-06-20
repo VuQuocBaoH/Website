@@ -88,11 +88,11 @@ const MyTicketsPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {tickets.map((ticket) => (
               <div key={ticket.id} className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-                <Link to={`/event/${ticket.event.id}`}>
+                <Link to={`/events/${ticket.event.id}`}>
                   <img src={ticket.event.image} alt={ticket.event.title} className="w-full h-48 object-cover" />
                 </Link>
                 <div className="p-5">
-                  <Link to={`/event/${ticket.event.id}`} className="block text-xl font-semibold text-gray-900 hover:text-event-purple transition-colors mb-2">
+                  <Link to={`/events/${ticket.event.id}`} className="block text-xl font-semibold text-gray-900 hover:text-event-purple transition-colors mb-2">
                     {ticket.event.title}
                   </Link>
                   <p className="text-sm text-gray-600 mb-4">Mã vé: <span className="font-medium text-gray-800">{ticket.ticketCode}</span></p>

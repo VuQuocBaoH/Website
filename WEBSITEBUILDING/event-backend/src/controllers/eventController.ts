@@ -217,7 +217,7 @@ export const registerForEvent: RequestHandler = async (req, res): Promise<void> 
     }
 
     const ticketCode = uuidv4();
-    const qrCodeData = `Ticket Code: ${ticketCode}\nEvent ID: ${event._id}\nUser ID: ${user._id}`;
+    const qrCodeData = `Ticket Code: ${ticketCode}\nEvent ID: ${event._id}\nUser ID: ${user.id}`;
     const qrCodeUrl = await generateQRCodeDataURL(qrCodeData);
 
     const newTicket = new Ticket({
@@ -582,7 +582,7 @@ export const purchaseTicket: RequestHandler = async (req, res): Promise<void> =>
     }
 
     const ticketCode = uuidv4();
-    const qrCodeData = `Ticket Code: ${ticketCode}\nEvent ID: ${event._id}\nUser ID: ${user._id}\nPaid: Yes`;
+    const qrCodeData = `Ticket Code: ${ticketCode}\nEvent ID: ${event._id}\nUser ID: ${user.id}\nPaid: Yes`;
     const qrCodeUrl = await generateQRCodeDataURL(qrCodeData);
 
     const newTicket = new Ticket({
@@ -614,9 +614,10 @@ export const purchaseTicket: RequestHandler = async (req, res): Promise<void> =>
         <p>Mã vé của bạn: <strong>${ticketCode}</strong></p>
         <p>Vui lòng mang theo QR code này khi đến sự kiện để check-in:</p>
         <img src="${qrCodeUrl}" alt="QR Code của bạn" style="width:200px; height:200px; display:block; margin: 10px 0;"/>
+        <p><a href="${process.env.FRONTEND_BASE_URL}/my-tickets?ticketCode=${ticketCode}" style="display:inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Xem QR Code của tôi</a></p>
         <p>Bạn có thể xem vé của mình tại tài khoản của bạn trên website của chúng tôi.</p>
         <p>Chúng tôi mong chờ được gặp bạn!</p>
-        <p>Trân trọng,<br/>Đội ngũ ${event.organizer?.name || 'Tổ chức sự kiện'}</p>
+        <p>Trân trọng,<br/>${event.organizer?.name || 'Tổ chức sự kiện'}</p>
       `,
     };
 
@@ -719,7 +720,7 @@ export const getEventTickets: RequestHandler = async (req, res): Promise<void> =
         isFreeTicket: ticket.isFreeTicket,
         checkInStatus: ticket.checkInStatus,
         checkInTime: ticket.checkInTime ? ticket.checkInTime.toISOString() : undefined,
-        user: user ? { id: user._id, username: user.username, email: user.email } : null,
+        user: user ? { id: user.id, username: user.username, email: user.email } : null,
       };
     });
 
@@ -727,5 +728,115 @@ export const getEventTickets: RequestHandler = async (req, res): Promise<void> =
   } catch (err: any) {
     console.error('Error fetching event tickets:', err.message);
     res.status(500).send('Server Error');
+  }
+};
+
+// @route   POST /api/events/tickets/check-in
+// @desc    Check-in a ticket by its code for a specific event
+// @access  Private (Organizer/Admin)
+export const checkInTicket: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const { ticketCode, eventId } = req.body;
+
+    if (!userId) {
+      res.status(401).json({ msg: 'Người dùng chưa được xác thực.' });
+      return;
+    }
+
+    if (!ticketCode || !eventId) {
+      res.status(400).json({ msg: 'Mã vé và ID sự kiện là bắt buộc.' });
+      return;
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện.' });
+      return;
+    }
+
+    // Kiểm tra quyền: Chỉ người tổ chức sự kiện hoặc admin mới có thể check-in
+    if (event.organizerId.toString() !== userId && userRole !== 'admin') {
+      res.status(403).json({ msg: 'Bạn không có quyền check-in cho sự kiện này.' });
+      return;
+    }
+
+    const ticket = await Ticket.findOne({ ticketCode: ticketCode, eventId: eventId });
+
+    if (!ticket) {
+      res.status(404).json({ msg: 'Không tìm thấy vé với mã này cho sự kiện đã chọn.' });
+      return;
+    }
+
+    if (ticket.checkInStatus === 'checkedIn') {
+      res.status(400).json({ msg: 'Vé này đã được check-in rồi.' });
+      return;
+    }
+
+    // Cập nhật trạng thái check-in
+    ticket.checkInStatus = 'checkedIn';
+    ticket.checkInTime = new Date();
+    await ticket.save();
+
+    res.json({ msg: `Check-in thành công cho vé ${ticketCode}!`, ticket });
+  } catch (err: any) {
+    console.error('Lỗi khi check-in vé:', err.message);
+    res.status(500).send('Lỗi máy chủ khi check-in.');
+  }
+};
+
+// @route   POST /api/events/tickets/check-out
+// @desc    Check-out a ticket by its code for a specific event (revert check-in)
+// @access  Private (Organizer/Admin)
+export const checkOutTicket: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const { ticketCode, eventId } = req.body;
+
+    if (!userId) {
+      res.status(401).json({ msg: 'Người dùng chưa được xác thực.' });
+      return;
+    }
+
+    if (!ticketCode || !eventId) {
+      res.status(400).json({ msg: 'Mã vé và ID sự kiện là bắt buộc.' });
+      return;
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện.' });
+      return;
+    }
+
+    // Kiểm tra quyền: Chỉ người tổ chức sự kiện hoặc admin mới có thể check-out
+    if (event.organizerId.toString() !== userId && userRole !== 'admin') {
+      res.status(403).json({ msg: 'Bạn không có quyền check-out cho sự kiện này.' });
+      return;
+    }
+
+    const ticket = await Ticket.findOne({ ticketCode: ticketCode, eventId: eventId });
+
+    if (!ticket) {
+      res.status(404).json({ msg: 'Không tìm thấy vé với mã này cho sự kiện đã chọn.' });
+      return;
+    }
+
+    if (ticket.checkInStatus === 'pending') {
+      res.status(400).json({ msg: 'Vé này chưa được check-in.' });
+      return;
+    }
+
+    // Cập nhật trạng thái check-out
+    ticket.checkInStatus = 'pending'; // Trả về trạng thái chờ check-in
+    ticket.checkInTime = undefined; // Xóa thời gian check-in
+    await ticket.save();
+
+    res.json({ msg: `Check-out thành công cho vé ${ticketCode}!`, ticket });
+  } catch (err: any) {
+    console.error('Lỗi khi check-out vé:', err.message);
+    res.status(500).send('Lỗi máy chủ khi check-out.');
   }
 };
