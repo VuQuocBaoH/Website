@@ -39,12 +39,12 @@ const Events = () => {
   const [error, setError] = useState<string | null>(null);
 
   const categories = [
-    'Music', 'Business', 'Food & Drink', 'Health', 'Comedy',
-    'Sports', 'Education', 'Arts', 'Gaming', 'Fashion', 'Other'
+    'Âm nhạc', 'Kinh doanh', 'Ẩm thực & Đồ uống', 'Sức khỏe', 'Hài kịch', // Việt hóa
+    'Thể thao', 'Giáo dục', 'Nghệ thuật', 'Trò chơi', 'Thời trang', 'Khác' // Việt hóa
   ];
 
   const dateOptions = [
-    'Today', 'Tomorrow', 'This Weekend', 'This Week', 'This Month', 'Next Month', 'All Upcoming'
+    'Hôm nay', 'Ngày mai', 'Cuối tuần này', 'Tuần này', 'Tháng này', 'Tháng sau', 'Tất cả sắp tới' // Việt hóa
   ];
 
   const fetchEvents = useCallback(async (
@@ -64,7 +64,7 @@ const Events = () => {
       setAllEvents(response.data.map((event: any) => ({
           id: event._id,
           title: event.title,
-          date: new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          date: new Date(event.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }), // Việt hóa định dạng ngày
           time: event.time,
           location: event.location,
           image: event.image,
@@ -73,8 +73,8 @@ const Events = () => {
           organizer: event.organizer.name
       })));
     } catch (err) {
-      console.error('Error fetching events:', err);
-      setError('Failed to load events.');
+      console.error('Lỗi khi lấy sự kiện:', err); // Việt hóa
+      setError('Không thể tải sự kiện.'); // Việt hóa
     } finally {
       setLoading(false);
     }
@@ -142,7 +142,7 @@ const Events = () => {
         {/* Header section */}
         <section className="bg-white border-b border-gray-200">
           <div className="container mx-auto px-4 py-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">Discover Events</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-6">Khám phá sự kiện</h1> {/* Việt hóa */}
 
             {/* Search and filter bar */}
             <div className="flex flex-col md:flex-row gap-4">
@@ -150,7 +150,7 @@ const Events = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   type="text"
-                  placeholder="Search events"
+                  placeholder="Tìm kiếm sự kiện" // Việt hóa
                   className="pl-10 pr-4"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -160,7 +160,7 @@ const Events = () => {
               <div className="flex gap-2">
                 <Select onValueChange={(val) => setSelectedDate(val)} value={selectedDate || ""}>
                   <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="When" />
+                    <SelectValue placeholder="Thời gian" /> {/* Việt hóa */}
                   </SelectTrigger>
                   <SelectContent>
                     {dateOptions.map((option) => (
@@ -177,7 +177,7 @@ const Events = () => {
                   className="flex items-center"
                 >
                   <Filter className="mr-2 h-4 w-4" />
-                  Filters
+                  Bộ lọc {/* Việt hóa */}
                   <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </div>
@@ -187,17 +187,17 @@ const Events = () => {
             {showFilters && (
               <div className="mt-4 p-4 bg-white border border-gray-200 rounded-lg animate-fade-in">
                 <div className="flex justify-between mb-4">
-                  <h3 className="font-medium">Advanced Filters</h3>
+                  <h3 className="font-medium">Bộ lọc nâng cao</h3> {/* Việt hóa */}
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-500 h-auto py-1">
                     <X className="mr-1 h-3 w-3" />
-                    Clear filters
+                    Xóa bộ lọc {/* Việt hóa */}
                   </Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Categories */}
                   <div>
-                    <h4 className="text-sm font-medium mb-2">Categories</h4>
+                    <h4 className="text-sm font-medium mb-2">Danh mục</h4> {/* Việt hóa */}
                     <div className="grid grid-cols-2 gap-2">
                       {categories.map((category) => (
                         <div key={category} className="flex items-center space-x-2">
@@ -218,7 +218,7 @@ const Events = () => {
 
               {/* Price Range */}
               <div>
-                <h4 className="text-sm font-medium mb-2">Price Range</h4>
+                <h4 className="text-sm font-medium mb-2">Khoảng giá</h4> {/* Việt hóa */}
                 <div className="px-2">
                   <Slider
                     defaultValue={priceRange}
@@ -237,19 +237,19 @@ const Events = () => {
 
               {/* More filters */}
               <div>
-                <h4 className="text-sm font-medium mb-2">More Options</h4>
+                <h4 className="text-sm font-medium mb-2">Tùy chọn khác</h4> {/* Việt hóa */}
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
                     <Checkbox id="free-events" />
-                    <label htmlFor="free-events" className="text-sm">Free events only</label>
+                    <label htmlFor="free-events" className="text-sm">Chỉ sự kiện miễn phí</label> {/* Việt hóa */}
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox id="online-events" />
-                    <label htmlFor="online-events" className="text-sm">Online events</label>
+                    <label htmlFor="online-events" className="text-sm">Sự kiện trực tuyến</label> {/* Việt hóa */}
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox id="accessible-events" />
-                    <label htmlFor="accessible-events" className="text-sm">Accessible venues</label>
+                    <label htmlFor="accessible-events" className="text-sm">Địa điểm dễ tiếp cận</label> {/* Việt hóa */}
                   </div>
                 </div>
               </div>
@@ -257,7 +257,7 @@ const Events = () => {
 
             <div className="mt-6 flex justify-end">
               <Button className="bg-event-purple hover:bg-event-dark-purple" onClick={handleApplyFilters}>
-                Apply Filters
+                Áp dụng bộ lọc {/* Việt hóa */}
               </Button>
             </div>
           </div>
@@ -268,7 +268,7 @@ const Events = () => {
           <div className="flex flex-wrap gap-2 mt-4">
             {searchTerm && (
               <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                Search: {searchTerm}
+                Tìm kiếm: {searchTerm} {/* Việt hóa */}
                 <X
                   className="h-3 w-3 ml-1 cursor-pointer"
                   onClick={() => setSearchTerm('')}
@@ -278,7 +278,7 @@ const Events = () => {
 
             {selectedCategory && (
               <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                Category: {selectedCategory}
+                Danh mục: {selectedCategory} {/* Việt hóa */}
                 <X
                   className="h-3 w-3 ml-1 cursor-pointer"
                   onClick={() => setSelectedCategory(null)}
@@ -288,7 +288,7 @@ const Events = () => {
 
             {selectedDate && (
               <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                Date: {selectedDate}
+                Ngày: {selectedDate} {/* Việt hóa */}
                 <X
                   className="h-3 w-3 ml-1 cursor-pointer"
                   onClick={() => setSelectedDate(null)}
@@ -303,7 +303,7 @@ const Events = () => {
                 onClick={clearFilters}
                 className="h-auto py-1 px-2 text-xs"
               >
-                Clear all
+                Xóa tất cả {/* Việt hóa */}
               </Button>
             )}
           </div>
@@ -316,18 +316,18 @@ const Events = () => {
           <div className="container mx-auto px-4">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">
-                {loading ? 'Loading...' : `${filteredEvents.length} ${filteredEvents.length === 1 ? 'Event' : 'Events'} Found`}
+                {loading ? 'Đang tải...' : `${filteredEvents.length} ${filteredEvents.length === 1 ? 'Sự kiện' : 'Sự kiện'} được tìm thấy`} {/* Việt hóa */}
               </h2>
               <Select defaultValue="recommended">
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Sort by" />
+                  <SelectValue placeholder="Sắp xếp theo" /> {/* Việt hóa */}
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="recommended">Recommended</SelectItem>
-                  <SelectItem value="date-asc">Date: Earliest first</SelectItem>
-                  <SelectItem value="date-desc">Date: Latest first</SelectItem>
-                  <SelectItem value="price-asc">Price: Low to High</SelectItem>
-                  <SelectItem value="price-desc">Price: High to Low</SelectItem>
+                  <SelectItem value="recommended">Đề xuất</SelectItem> {/* Việt hóa */}
+                  <SelectItem value="date-asc">Ngày: Sớm nhất</SelectItem> {/* Việt hóa */}
+                  <SelectItem value="date-desc">Ngày: Muộn nhất</SelectItem> {/* Việt hóa */}
+                  <SelectItem value="price-asc">Giá: Thấp đến cao</SelectItem> {/* Việt hóa */}
+                  <SelectItem value="price-desc">Giá: Cao đến thấp</SelectItem> {/* Việt hóa */}
                 </SelectContent>
               </Select>
             </div>
@@ -342,15 +342,15 @@ const Events = () => {
               </div>
             ) : !loading && (
               <div className="text-center py-12">
-                <h3 className="text-xl font-medium mb-2">No events found</h3>
-                <p className="text-gray-500 mb-6">Try adjusting your search or filters to find what you're looking for.</p>
-                <Button onClick={clearFilters}>Clear all filters</Button>
+                <h3 className="text-xl font-medium mb-2">Không tìm thấy sự kiện nào</h3> {/* Việt hóa */}
+                <p className="text-gray-500 mb-6">Hãy thử điều chỉnh tìm kiếm hoặc bộ lọc để tìm thứ bạn đang tìm kiếm.</p> {/* Việt hóa */}
+                <Button onClick={clearFilters}>Xóa tất cả bộ lọc</Button> {/* Việt hóa */}
               </div>
             )}
 
             {!loading && filteredEvents.length > 0 && (
               <div className="mt-10 flex justify-center">
-                <Button variant="outline" size="lg">Load More Events</Button>
+                <Button variant="outline" size="lg">Tải thêm sự kiện</Button> {/* Việt hóa */}
               </div>
             )}
           </div>

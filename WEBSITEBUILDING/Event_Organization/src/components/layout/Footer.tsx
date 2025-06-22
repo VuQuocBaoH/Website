@@ -1,4 +1,3 @@
-
 import { Link } from 'react-router-dom';
 import { Calendar, Instagram, Twitter, Facebook, Mail } from 'lucide-react';
 
@@ -13,7 +12,7 @@ const Footer = () => {
           <div className="col-span-1">
             <Link to="/" className="flex items-center space-x-2">
               <Calendar className="h-6 w-6 text-event-purple" />
-              <span className="text-xl font-bold text-gray-800">Event Organization</span>
+              <span className="text-xl font-bold text-gray-800">Tổ Chức Sự Kiện</span>
             </Link>
             <p className="text-gray-500 mt-4">
               Giúp bạn quản lý, tổ chức sự kiện tuyệt vời của bạn.
@@ -36,11 +35,11 @@ const Footer = () => {
 
           {/* Links columns */}
           <div>
-            <h3 className="font-medium text-gray-900 mb-4">Quản lys</h3>
+            <h3 className="font-medium text-gray-900 mb-4">Quản lý</h3>
             <ul className="space-y-3">
-              <li><Link to="/about" className="text-gray-500 hover:text-event-purple transition-colors">About Us</Link></li>
-              <li><Link to="/careers" className="text-gray-500 hover:text-event-purple transition-colors">Careers</Link></li>
-              <li><Link to="/press" className="text-gray-500 hover:text-event-purple transition-colors">Press</Link></li>
+              <li><Link to="/about" className="text-gray-500 hover:text-event-purple transition-colors">Về chúng tôi</Link></li>
+              <li><Link to="/careers" className="text-gray-500 hover:text-event-purple transition-colors">Cơ hội nghề nghiệp</Link></li>
+              <li><Link to="/press" className="text-gray-500 hover:text-event-purple transition-colors">Báo chí</Link></li>
               <li><Link to="/blog" className="text-gray-500 hover:text-event-purple transition-colors">Blog</Link></li>
             </ul>
           </div>
@@ -48,27 +47,27 @@ const Footer = () => {
           <div>
             <h3 className="font-medium text-gray-900 mb-4">Điều khoản</h3>
             <ul className="space-y-3">
-              <li><Link to="/support" className="text-gray-500 hover:text-event-purple transition-colors">Support</Link></li>
-              <li><Link to="/organizers" className="text-gray-500 hover:text-event-purple transition-colors">For Organizers</Link></li>
-              <li><Link to="/faqs" className="text-gray-500 hover:text-event-purple transition-colors">FAQs</Link></li>
-              <li><Link to="/contact" className="text-gray-500 hover:text-event-purple transition-colors">Contact Us</Link></li>
+              <li><Link to="/support" className="text-gray-500 hover:text-event-purple transition-colors">Hỗ trợ</Link></li>
+              <li><Link to="/organizers" className="text-gray-500 hover:text-event-purple transition-colors">Dành cho nhà tổ chức</Link></li>
+              <li><Link to="/faqs" className="text-gray-500 hover:text-event-purple transition-colors">Câu hỏi thường gặp</Link></li>
+              <li><Link to="/contact" className="text-gray-500 hover:text-event-purple transition-colors">Liên hệ</Link></li>
             </ul>
           </div>
 
           <div>
             <h3 className="font-medium text-gray-900 mb-4">Chính sách</h3>
             <ul className="space-y-3">
-              <li><Link to="/terms" className="text-gray-500 hover:text-event-purple transition-colors">Terms of Service</Link></li>
-              <li><Link to="/privacy" className="text-gray-500 hover:text-event-purple transition-colors">Privacy Policy</Link></li>
-              <li><Link to="/cookies" className="text-gray-500 hover:text-event-purple transition-colors">Cookie Policy</Link></li>
-              <li><Link to="/security" className="text-gray-500 hover:text-event-purple transition-colors">Security</Link></li>
+              <li><Link to="/terms" className="text-gray-500 hover:text-event-purple transition-colors">Điều khoản dịch vụ</Link></li>
+              <li><Link to="/privacy" className="text-gray-500 hover:text-event-purple transition-colors">Chính sách bảo mật</Link></li>
+              <li><Link to="/cookies" className="text-gray-500 hover:text-event-purple transition-colors">Chính sách Cookie</Link></li>
+              <li><Link to="/security" className="text-gray-500 hover:text-event-purple transition-colors">Bảo mật</Link></li>
             </ul>
           </div>
         </div>
 
         <div className="border-t border-gray-200 mt-12 pt-6">
           <p className="text-gray-500 text-sm text-center">
-            &copy; {currentYear} Event Organization. All rights reserved.
+            &copy; {currentYear} Tổ Chức Sự Kiện. Mọi quyền được bảo lưu.
           </p>
         </div>
       </div>

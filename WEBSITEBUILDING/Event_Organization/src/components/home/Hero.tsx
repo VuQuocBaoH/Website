@@ -44,7 +44,7 @@ import { useState } from 'react';
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                   <input
                     type="text"
-                    placeholder="Tìm sự kiện"
+                    placeholder="Tìm sự kiện" // Thay đổi từ "Tìm sự kiện" (đã có sẵn tiếng Việt)
                     className="pl-12 pr-4 py-3 rounded-full w-full text-black focus:outline-none focus:ring-2 focus:ring-white/30"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}

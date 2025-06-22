@@ -25,7 +25,7 @@ const Index = () => {
         setFeaturedEvents(featuredRes.data.map((event: any) => ({
             id: event._id,
             title: event.title,
-            date: new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+            date: new Date(event.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }), // Việt hóa định dạng ngày
             time: event.time,
             location: event.location,
             image: event.image,
@@ -39,7 +39,7 @@ const Index = () => {
         setUpcomingEvents(upcomingRes.data.map((event: any) => ({
             id: event._id,
             title: event.title,
-            date: new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+            date: new Date(event.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }), // Việt hóa định dạng ngày
             time: event.time,
             location: event.location,
             image: event.image,
@@ -48,8 +48,8 @@ const Index = () => {
             organizer: event.organizer.name
         })));
       } catch (err) {
-        console.error('Error fetching events:', err);
-        setError('Failed to load events.');
+        console.error('Lỗi khi lấy sự kiện:', err); // Việt hóa
+        setError('Không thể tải sự kiện.'); // Việt hóa
       } finally {
         setLoading(false);
       }
@@ -58,7 +58,7 @@ const Index = () => {
     fetchEvents();
   }, []); // [] đảm bảo chỉ chạy một lần khi component mount
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading events...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải sự kiện...</div>; {/* Việt hóa */}
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
 
   return (
@@ -73,7 +73,7 @@ const Index = () => {
         <section className="py-12">
           <div className="container mx-auto px-4">
             <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900">Sự kiện diễn ra</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Sự kiện nổi bật</h2> {/* Việt hóa */}
               <Button variant="outline" className="flex items-center">
                 <Link to="/events">Xem tất cả</Link> <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
@@ -82,7 +82,7 @@ const Index = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {featuredEvents.length > 0 ? featuredEvents.map((event) => (
                 <EventCard key={event.id} {...event} />
-              )) : <p>No featured events found. Try creating some and setting them as featured in the backend.</p>}
+              )) : <p>Không tìm thấy sự kiện nổi bật nào. Hãy thử tạo một số và đặt chúng làm nổi bật ở backend.</p>} {/* Việt hóa */}
             </div>
           </div>
         </section>
@@ -103,7 +103,7 @@ const Index = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {upcomingEvents.length > 0 ? upcomingEvents.map((event) => (
                 <EventCard key={event.id} {...event} />
-              )) : <p>No upcoming events found. Try creating some with future dates and setting them as upcoming in the backend.</p>}
+              )) : <p>Không tìm thấy sự kiện sắp tới nào. Hãy thử tạo một số với ngày trong tương lai và đặt chúng làm sắp tới ở backend.</p>} {/* Việt hóa */}
             </div>
           </div>
         </section>

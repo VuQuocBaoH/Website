@@ -45,7 +45,7 @@ const MyTicketsPage = () => {
       setError(null);
       const token = localStorage.getItem('token');
       if (!token) {
-        toast.error('You need to be logged in to view your tickets.');
+        toast.error('Bạn cần đăng nhập để xem vé của mình.'); // Việt hóa
         navigate('/signin');
         return;
       }
@@ -56,9 +56,9 @@ const MyTicketsPage = () => {
         });
         setTickets(response.data);
       } catch (err: any) {
-        console.error('Error fetching my tickets:', err.response?.data || err.message);
-        setError(err.response?.data?.msg || 'Failed to load your tickets.');
-        toast.error('Failed to load your tickets.');
+        console.error('Lỗi khi lấy vé của tôi:', err.response?.data || err.message); // Việt hóa
+        setError(err.response?.data?.msg || 'Không thể tải vé của bạn.'); // Việt hóa
+        toast.error('Không thể tải vé của bạn.'); // Việt hóa
       } finally {
         setLoading(false);
       }
@@ -96,7 +96,7 @@ const MyTicketsPage = () => {
                     {ticket.event.title}
                   </Link>
                   <p className="text-sm text-gray-600 mb-4">Mã vé: <span className="font-medium text-gray-800">{ticket.ticketCode}</span></p>
-                  
+
                   <div className="flex items-center text-gray-700 mb-2">
                     <Calendar className="h-4 w-4 mr-2 text-event-purple" />
                     <span>
@@ -128,11 +128,11 @@ const MyTicketsPage = () => {
                       <div className="relative group">
                         <img
                           src={ticket.qrCodeUrl}
-                          alt="QR Code"
+                          alt="Mã QR" // Việt hóa
                           className="w-16 h-16 border rounded-sm cursor-pointer"
                         />
                         <div className="absolute left-1/2 transform -translate-x-1/2 -top-20 bg-white p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
-                            <img src={ticket.qrCodeUrl} alt="QR Code Large" className="w-48 h-48" />
+                            <img src={ticket.qrCodeUrl} alt="Mã QR Lớn" className="w-48 h-48" /> {/* Việt hóa */}
                         </div>
                       </div>
                     )}

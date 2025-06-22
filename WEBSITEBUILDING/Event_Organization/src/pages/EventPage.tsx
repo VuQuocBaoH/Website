@@ -94,7 +94,7 @@ const EventPage = () => {
       setError(null);
       try {
         if (!id) {
-            setError('Event ID is missing.');
+            setError('Thiếu ID sự kiện.'); // Việt hóa
             setLoading(false);
             return;
         }
@@ -106,28 +106,28 @@ const EventPage = () => {
 
         checkRegistrationStatus(eventData, user);
         checkOrganizerStatus(eventData, user);
-        
+
         const organizerDetails = eventData.organizer ? {
-            name: eventData.organizer.name || 'Unknown Organizer',
+            name: eventData.organizer.name || 'Người tổ chức không xác định', // Việt hóa
             image: eventData.organizer.image || null,
             description: eventData.organizer.description || `Sự kiện tổ chức bởi ${eventData.organizer.name}.`
         } : {
-            name: 'Unknown Organizer',
+            name: 'Người tổ chức không xác định', // Việt hóa
             image: null,
-            description: 'Organizer information is not available.'
+            description: 'Thông tin người tổ chức không khả dụng.' // Việt hóa
         };
-        
+
         setCurrentEvent({
           id: eventData._id,
           title: eventData.title,
-          date: new Date(eventData.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          date: new Date(eventData.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }), // Việt hóa định dạng ngày
           time: eventData.time,
           location: eventData.location,
           address: eventData.address || eventData.location,
           image: eventData.image,
           isFree: eventData.isFree, // <-- Đảm bảo thuộc tính này được truyền vào
           price: eventData.isFree
-            ? 'Free'
+            ? 'Miễn phí' // Việt hóa
             : `${eventData.price?.amount?.toLocaleString()} ${eventData.price?.currency?.toUpperCase()}`,
           category: eventData.category,
           organizer: organizerDetails,
@@ -135,7 +135,7 @@ const EventPage = () => {
           description: eventData.description,
           longDescription: eventData.longDescription,
           // CẬP NHẬT: registeredAttendeesCount sẽ là số lượng tickets
-          registeredAttendeesCount: eventData.tickets ? eventData.tickets.length : 0, 
+          registeredAttendeesCount: eventData.tickets ? eventData.tickets.length : 0,
           // XÓA DÒNG NÀY: registeredAttendees: eventData.registeredAttendees || [],
           capacity: eventData.capacity,
           schedule: eventData.schedule || [],
@@ -148,19 +148,19 @@ const EventPage = () => {
             .map((event: any) => ({
                 id: event._id,
                 title: event.title,
-                date: new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+                date: new Date(event.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }), // Việt hóa định dạng ngày
                 time: event.time,
                 location: event.location,
                 image: event.image,
-                price: event.isFree ? 'Free' : `${event.price?.amount?.toLocaleString()} ${event.price?.currency?.toUpperCase()}`,
+                price: event.isFree ? 'Miễn phí' : `${event.price?.amount?.toLocaleString()} ${event.price?.currency?.toUpperCase()}`, // Việt hóa
                 category: event.category,
-                organizer: event.organizer?.name || 'Unknown Organizer'
+                organizer: event.organizer?.name || 'Người tổ chức không xác định' // Việt hóa
             }));
         setRelatedEvents(related);
 
       } catch (err) {
-        console.error('Error fetching event details:', err);
-        setError('Failed to load event details. It might not exist or has been removed.');
+        console.error('Lỗi khi lấy chi tiết sự kiện:', err); // Việt hóa
+        setError('Không thể tải chi tiết sự kiện. Có thể sự kiện không tồn tại hoặc đã bị xóa.'); // Việt hóa
       } finally {
         setLoading(false);
       }
@@ -171,7 +171,7 @@ const EventPage = () => {
 
   useEffect(() => {
     if (location.state?.fromEdit) {
-      toast.info("Event details have been refreshed.");
+      toast.info("Chi tiết sự kiện đã được làm mới."); // Việt hóa
       setRefreshKey(prevKey => prevKey + 1);
       navigate(location.pathname, { replace: true, state: {} });
     }
@@ -182,7 +182,7 @@ const EventPage = () => {
     const token = localStorage.getItem('token');
     const userString = localStorage.getItem('user');
     if (!token || !userString) {
-      toast.error('You need to be logged in to register for an event.');
+      toast.error('Bạn cần đăng nhập để đăng ký sự kiện.'); // Việt hóa
       navigate('/signin');
       return;
     }
@@ -191,7 +191,7 @@ const EventPage = () => {
     try {
       let response;
       // Dựa vào thuộc tính `isFree` của `currentEvent` để quyết định API gọi
-      if (currentEvent.isFree) { 
+      if (currentEvent.isFree) {
         response = await axios.post(
           `${API_BASE_URL}/events/${id}/register`,
           { discountCode },
@@ -206,22 +206,22 @@ const EventPage = () => {
       }
 
       toast.success(response.data.msg);
-      
+
       setRefreshKey(prevKey => prevKey + 1);
 
       if (userId && currentEvent?.title) {
-        addNotification(userId, `Bạn đã ${currentEvent.isFree ? 'đăng ký' : 'mua vé'} thành công sự kiện: "${currentEvent.title}"!`);
+        addNotification(userId, `Bạn đã ${currentEvent.isFree ? 'đăng ký' : 'mua vé'} thành công sự kiện: "${currentEvent.title}"!`); // Việt hóa
       }
     } catch (error: any) {
-      console.error('Error during event registration/purchase:', error.response?.data || error.message);
-      toast.error(error.response?.data?.msg || 'Failed to complete action.');
+      console.error('Lỗi trong quá trình đăng ký/mua vé sự kiện:', error.response?.data || error.message); // Việt hóa
+      toast.error(error.response?.data?.msg || 'Hoàn thành hành động thất bại.'); // Việt hóa
     }
   };
 
   const handleDeleteEvent = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
-      toast.error('You need to be logged in to delete an event.');
+      toast.error('Bạn cần đăng nhập để xóa sự kiện.'); // Việt hóa
       navigate('/signin');
       return;
     }
@@ -229,11 +229,11 @@ const EventPage = () => {
       await axios.delete(`${API_BASE_URL}/events/${id}`, {
         headers: { 'x-auth-token': token },
       });
-      toast.success('Event deleted successfully!');
+      toast.success('Sự kiện đã được xóa thành công!'); // Việt hóa
       navigate('/events');
     } catch (error: any) {
-      console.error('Error deleting event:', error.response?.data || error.message);
-      toast.error(error.response?.data?.msg || 'Failed to delete event.');
+      console.error('Lỗi khi xóa sự kiện:', error.response?.data || error.message); // Việt hóa
+      toast.error(error.response?.data?.msg || 'Xóa sự kiện thất bại.'); // Việt hóa
     }
   };
 
@@ -243,7 +243,7 @@ const EventPage = () => {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải thông tin sự kiện...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải thông tin sự kiện...</div>; // Việt hóa
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
 
 
@@ -273,19 +273,19 @@ const EventPage = () => {
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive">Xóa sự kiện</Button>
+                    <Button variant="destructive">Xóa sự kiện</Button> {/* Việt hóa */}
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Bạn có chắc chắn muốn xóa sự kiện này không?</AlertDialogTitle>
+                      <AlertDialogTitle>Bạn có chắc chắn muốn xóa sự kiện này không?</AlertDialogTitle> {/* Việt hóa */}
                       <AlertDialogDescription>
-                        Hành động này không thể hoàn tác, sự kiện sẽ bị xóa vĩnh viễn khỏi hệ thống.
+                        Hành động này không thể hoàn tác, sự kiện sẽ bị xóa vĩnh viễn khỏi hệ thống. {/* Việt hóa */}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Hủy</AlertDialogCancel>
+                      <AlertDialogCancel>Hủy</AlertDialogCancel> {/* Việt hóa */}
                       <AlertDialogAction onClick={handleDeleteEvent} className="bg-red-600 hover:bg-red-700">
-                        Xóa
+                        Xóa {/* Việt hóa */}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -296,7 +296,7 @@ const EventPage = () => {
             {relatedEvents.length > 0 && (
                 <section className="py-12 bg-white border-t">
                 <div className="container mx-auto px-4">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-8">Sự kiện bạn có thể thích</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-8">Sự kiện bạn có thể thích</h2> {/* Việt hóa */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                     {relatedEvents.map((event) => (
                         <EventCard key={event.id} {...event} />
@@ -308,9 +308,9 @@ const EventPage = () => {
           </>
         ) : (
           <div className="container mx-auto px-4 py-16 text-center">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Không tìm thấy sự kiện</h2>
-            <p className="text-gray-600 mb-8">Sự kiện bạn tìm kiếm có thể không tồn tại hoặc đã bị xóa.</p>
-            <Button onClick={() => navigate('/events')}>Trở về trang sự kiện</Button>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Không tìm thấy sự kiện</h2> {/* Việt hóa */}
+            <p className="text-gray-600 mb-8">Sự kiện bạn tìm kiếm có thể không tồn tại hoặc đã bị xóa.</p> {/* Việt hóa */}
+            <Button onClick={() => navigate('/events')}>Trở về trang sự kiện</Button> {/* Việt hóa */}
           </div>
         )}
       </main>

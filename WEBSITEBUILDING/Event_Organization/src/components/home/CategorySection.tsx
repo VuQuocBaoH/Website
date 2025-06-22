@@ -31,18 +31,18 @@ import { Link, useNavigate } from 'react-router-dom'; // Import useNavigate
     const CategorySection = () => {
       // Dữ liệu categories này vẫn là tĩnh. Nếu muốn count động, cần fetch từ backend
       const categories = [
-        { icon: <Music size={24} className="text-white" />, name: "Music", color: "bg-event-purple" },
-        { icon: <Utensils size={24} className="text-white" />, name: "Food & Drink", color: "bg-event-pink" },
-        { icon: <Briefcase size={24} className="text-white" />, name: "Business", color: "bg-event-teal" },
-        { icon: <GraduationCap size={24} className="text-white" />, name: "Education", color: "bg-event-orange" },
-        { icon: <Gamepad2 size={24} className="text-white" />, name: "Gaming", color: "bg-green-500" },
-        { icon: <Users size={24} className="text-white" />, name: "Social", color: "bg-blue-500" },
-        { icon: <HeartPulse size={24} className="text-white" />, name: "Health", color: "bg-red-500" },
-        { icon: <MicVocal size={24} className="text-white" />, name: "Comedy", color: "bg-yellow-500" },
-        { icon: <Palette size={24} className="text-white" />, name: "Arts", color: "bg-indigo-500" }, 
-        { icon: <Zap size={24} className="text-white" />, name: "Sports", color: "bg-orange-500" }, 
-        { icon: <Shirt size={24} className="text-white" />, name: "Fashion", color: "bg-fuchsia-500" }, 
-        { icon: <MicVocal size={24} className="text-white" />, name: "Other", color: "bg-gray-500" }, 
+        { icon: <Music size={24} className="text-white" />, name: "Âm nhạc", color: "bg-event-purple" }, // Music -> Âm nhạc
+        { icon: <Utensils size={24} className="text-white" />, name: "Ẩm thực & Đồ uống", color: "bg-event-pink" }, // Food & Drink -> Ẩm thực & Đồ uống
+        { icon: <Briefcase size={24} className="text-white" />, name: "Kinh doanh", color: "bg-event-teal" }, // Business -> Kinh doanh
+        { icon: <GraduationCap size={24} className="text-white" />, name: "Giáo dục", color: "bg-event-orange" }, // Education -> Giáo dục
+        { icon: <Gamepad2 size={24} className="text-white" />, name: "Trò chơi", color: "bg-green-500" }, // Gaming -> Trò chơi
+        { icon: <Users size={24} className="text-white" />, name: "Xã hội", color: "bg-blue-500" }, // Social -> Xã hội
+        { icon: <HeartPulse size={24} className="text-white" />, name: "Sức khỏe", color: "bg-red-500" }, // Health -> Sức khỏe
+        { icon: <MicVocal size={24} className="text-white" />, name: "Hài kịch", color: "bg-yellow-500" }, // Comedy -> Hài kịch
+        { icon: <Palette size={24} className="text-white" />, name: "Nghệ thuật", color: "bg-indigo-500" }, // Arts -> Nghệ thuật
+        { icon: <Zap size={24} className="text-white" />, name: "Thể thao", color: "bg-orange-500" }, // Sports -> Thể thao
+        { icon: <Shirt size={24} className="text-white" />, name: "Thời trang", color: "bg-fuchsia-500" }, // Fashion -> Thời trang
+        { icon: <MicVocal size={24} className="text-white" />, name: "Khác", color: "bg-gray-500" }, // Other -> Khác
       ];
 
       return (

@@ -29,16 +29,16 @@ const EventCard = ({
   if (typeof price === 'object' && price !== null) {
     displayPrice = `${price.amount.toLocaleString()} ${price.currency.toUpperCase()}`;
   } else if (price === 'Free') {
-    displayPrice = 'Free';
+    displayPrice = 'Miễn phí'; // Thay đổi từ 'Free' sang 'Miễn phí'
   }
 
   return (
     <Link to={`/events/${id}`}>
       <div className="bg-white rounded-lg overflow-hidden shadow-sm event-card h-full">
         <div className="relative">
-          <img 
-            src={image} 
-            alt={title} 
+          <img
+            src={image}
+            alt={title}
             className="w-full h-48 object-cover"
           />
           <Badge

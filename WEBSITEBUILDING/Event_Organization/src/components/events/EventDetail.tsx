@@ -41,7 +41,7 @@ export interface EventDetailProps {
   address: string;
   image: string;
   price: string;
-  isFree: boolean; 
+  isFree: boolean;
   category: string;
   organizer: {
     name: string;
@@ -69,14 +69,14 @@ const EventDetail = ({
   address,
   image,
   price,
-  isFree, 
+  isFree,
   category,
   organizer,
   organizerId,
   onRegister,
   isRegistered,
   registeredAttendeesCount = 0,
-  // registeredAttendees, // 
+  // registeredAttendees, //
   capacity,
   isOrganizer,
   schedule = [],
@@ -99,7 +99,7 @@ const EventDetail = ({
         try {
           const token = localStorage.getItem('token');
           if (!token) {
-            setAttendeesError('Authentication required to view attendee list.');
+            setAttendeesError('Yêu cầu xác thực để xem danh sách người tham dự.'); // Việt hóa thông báo lỗi
             return;
           }
           // Gọi API mới để lấy danh sách vé của sự kiện, có populate thông tin user
@@ -116,8 +116,8 @@ const EventDetail = ({
             checkInTime: ticket.checkInTime,
           })));
         } catch (err: any) {
-          console.error('Error fetching attendees details:', err);
-          setAttendeesError(err.response?.data?.msg || 'Failed to load attendee list.');
+          console.error('Lỗi khi lấy thông tin người tham dự:', err); // Việt hóa thông báo lỗi
+          setAttendeesError(err.response?.data?.msg || 'Không thể tải danh sách người tham dự.'); // Việt hóa thông báo lỗi
         } finally {
           setFetchingAttendees(false);
         }
@@ -198,7 +198,7 @@ const EventDetail = ({
 
             <TabsContent value="about" className="space-y-6">
               <div className="prose max-w-none">
-                <h3 className="text-xl font-semibold mb-4">Thông báo</h3>
+                <h3 className="text-xl font-semibold mb-4">Mô tả sự kiện</h3> {/* Thay đổi từ "Thông báo" thành "Mô tả sự kiện" */}
                 <p className="text-gray-700 whitespace-pre-wrap">{longDescription || description}</p>
               </div>
             </TabsContent>
@@ -248,7 +248,7 @@ const EventDetail = ({
                         <p className="text-sm text-gray-500">Người tổ chức</p>
                       </div>
                     </div>
-                    <p className="text-gray-700">{organizer.description || `Meet ${organizer.name}, the organizer of this event.`}</p>
+                    <p className="text-gray-700">{organizer.description || `Tìm hiểu về ${organizer.name}, người tổ chức sự kiện này.`}</p> {/* Việt hóa chuỗi mặc định */}
                     <Link to={`/organizers/${organizerId}`}>
                         <Button variant="outline" className="mt-4">
                             Xem hồ sơ
@@ -309,7 +309,7 @@ const EventDetail = ({
                 <div>
                   <p className="text-sm text-gray-500">Giá tiền</p>
                   <p className="text-xl font-semibold">
-                    {price === 'Free' ? 'Free' : price} {/* Price is already formatted from EventPage */}
+                    {price === 'Free' ? 'Miễn phí' : price} {/* Price is already formatted from EventPage */}
                   </p>
                 </div>
                 <div className="flex space-x-2">
@@ -324,7 +324,7 @@ const EventDetail = ({
                   </button>
                 </div>
               </div>
-              
+
               {!isOrganizer ? (
                 <>
                   {/* Mã giảm giá chỉ hiển thị cho sự kiện CÓ PHÍ, dùng isFree prop */}
@@ -363,7 +363,7 @@ const EventDetail = ({
                   <p className="text-sm font-medium text-gray-700">Bạn là người tổ chức sự kiện này.</p>
                 </div>
               )}
-              
+
             </div>
 
             <div className="space-y-4">

@@ -2,13 +2,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Menu, X, Calendar, User, Search, LogOut, Bell, Settings, Ticket } from "lucide-react"; // Import Ticket icon
-
+import { Menu, X, Calendar, User, Search, LogOut, Bell, Settings, Ticket } from "lucide-react";
 
 // Định nghĩa kiểu cho một thông báo
 interface AppNotification {
   id: string;
-  message: string;
+  message: string; // Nội dung thông báo
   date: string; // Ngày/giờ tạo thông báo
   read: boolean; // Trạng thái đã đọc hay chưa
 }
@@ -79,7 +78,7 @@ const Navbar = () => {
           setNotifications(userNotifications);
           setUnreadCount(userNotifications.filter(n => !n.read).length);
         } catch (e) {
-          console.error("Failed to parse user data from localStorage", e);
+          console.error("Không thể phân tích dữ liệu người dùng từ localStorage", e);
           setIsLoggedIn(false);
           setUsername(null);
           setIsAdminUser(false);
@@ -98,7 +97,7 @@ const Navbar = () => {
     checkLoginStatus();
     window.addEventListener('notificationAdded', checkLoginStatus);
     window.addEventListener('storage', checkLoginStatus);
-    
+
     return () => {
       window.removeEventListener('notificationAdded', checkLoginStatus);
       window.removeEventListener('storage', checkLoginStatus);
@@ -118,7 +117,7 @@ const Navbar = () => {
             const user = JSON.parse(userString);
             localStorage.removeItem(`notifications_${user.id}`);
         } catch (e) {
-            console.error("Error parsing user data during logout clean-up", e);
+            console.error("Lỗi khi phân tích dữ liệu người dùng trong quá trình đăng xuất", e);
         }
     }
     setIsLoggedIn(false);
@@ -137,7 +136,7 @@ const Navbar = () => {
         const user = JSON.parse(userString);
         markNotificationAsRead(user.id, notifId);
       } catch (e) {
-        console.error("Error marking notification as read", e);
+        console.error("Lỗi khi đánh dấu thông báo đã đọc", e);
       }
     }
   };
@@ -151,7 +150,7 @@ const Navbar = () => {
           const user = JSON.parse(userString);
           markAllNotificationsAsRead(user.id);
         } catch (e) {
-          console.error("Error marking all notifications as read", e);
+          console.error("Lỗi khi đánh dấu tất cả thông báo đã đọc", e);
         }
       }
     }
@@ -184,7 +183,7 @@ const Navbar = () => {
             {isAdminUser && (
               <Button variant="ghost" size="sm" asChild>
                 <Link to="/admin">
-                  <Settings className="h-5 w-5 text-gray-600 mr-2" /> Admin
+                  <Settings className="h-5 w-5 text-gray-600 mr-2" /> Quản trị
                 </Link>
               </Button>
             )}
@@ -275,7 +274,7 @@ const Navbar = () => {
               {isAdminUser && (
                 <Button variant="ghost" size="sm" asChild className="w-full justify-start px-2">
                   <Link to="/admin" onClick={toggleMenu}>
-                    <Settings className="h-5 w-5 text-gray-600 mr-2" /> Admin Dashboard
+                    <Settings className="h-5 w-5 text-gray-600 mr-2" /> Bảng điều khiển Admin
                   </Link>
                 </Button>
               )}
@@ -336,7 +335,7 @@ const Navbar = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search events"
+                  placeholder="Tìm kiếm sự kiện"
                   className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-event-purple/20"
                 />
               </div>

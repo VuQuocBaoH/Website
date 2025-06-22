@@ -30,11 +30,11 @@ const OrganizerProfilePage = () => {
         const [profileResponse, eventsResponse] = await Promise.all([profilePromise, eventsPromise]);
 
         setOrganizer(profileResponse.data);
-        
+
         const formattedEvents = eventsResponse.data.map((event: any) => ({
             id: event._id,
             title: event.title,
-            date: new Date(event.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+            date: new Date(event.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }), // Việt hóa định dạng ngày
             location: event.location,
             image: event.image,
             price: event.price,
@@ -44,8 +44,8 @@ const OrganizerProfilePage = () => {
         setEvents(formattedEvents);
 
       } catch (err) {
-        setError('Không thể tải thông tin người tổ chức. Người dùng có thể không tồn tại.');
-        console.error("Failed to fetch organizer data:", err);
+        setError('Không thể tải thông tin người tổ chức. Người dùng có thể không tồn tại.'); // Việt hóa
+        console.error("Lỗi khi lấy dữ liệu người tổ chức:", err); // Việt hóa
       } finally {
         setLoading(false);
       }
@@ -54,7 +54,7 @@ const OrganizerProfilePage = () => {
     fetchOrganizerData();
   }, [organizerId]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>; // Việt hóa
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
 
   return (
@@ -62,7 +62,7 @@ const OrganizerProfilePage = () => {
       <Navbar />
       <main className="flex-grow bg-gray-50 py-12">
         <div className="container mx-auto px-4">
-          
+
           {organizer && (
             <div className="flex items-center gap-6 mb-12 p-6 bg-white rounded-lg shadow-sm">
                 <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center">
@@ -71,12 +71,12 @@ const OrganizerProfilePage = () => {
                 </div>
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">{organizer.name || organizer.username}</h1>
-                    <p className="text-md text-gray-600 mt-1">{organizer.description || 'Không có mô tả.'}</p>
+                    <p className="text-md text-gray-600 mt-1">{organizer.description || 'Không có mô tả.'}</p> {/* Việt hóa */}
                 </div>
             </div>
           )}
 
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Các sự kiện được tổ chức bởi {organizer?.name || organizer?.username}</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Các sự kiện được tổ chức bởi {organizer?.name || organizer?.username}</h2> {/* Việt hóa */}
           {events.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {events.map((event) => (

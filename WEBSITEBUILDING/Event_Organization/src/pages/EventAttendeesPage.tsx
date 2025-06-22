@@ -239,31 +239,74 @@ const EventAttendeesPage = () => {
   };
 
   // Hàm xử lý khi quét QR hoặc nhập mã thủ công và nhấn nút tìm kiếm
+  // const handleScanOrSearch = async () => {
+  //   setScanError(null);
+  //   setCurrentScanResult(null); // Reset kết quả trước khi tìm kiếm mới
+
+  //   if (!scannedTicketCode) {
+  //     setScanError('Vui lòng nhập mã vé hoặc quét QR.');
+  //     return;
+  //   }
+
+  //   // Tìm vé trong danh sách đã fetch
+  //   const foundTicket = allTickets.find(t => t.ticketCode === scannedTicketCode);
+  //   if (foundTicket) {
+  //     setCurrentScanResult(foundTicket);
+  //     // Nếu tìm thấy, đảm bảo các trường hợp lỗi trước đó bị xóa
+  //     setScanError(null);
+  //   } else {
+  //     setScanError('Không tìm thấy vé với mã này cho sự kiện này.');
+  //   }
+  // };
+
+  // const filteredTickets = allTickets.filter(ticket =>
+  //   (ticket.user?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //    ticket.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //    ticket.ticketCode.toLowerCase().includes(searchTerm.toLowerCase()))
+  // );
+  const extractTicketCodeFromQRString = (qrString: string): string | null => {
+  console.log("DEBUG: Input QR string to extract:", qrString); // Thêm debug
+  const ticketCodeMatch = qrString.match(/Ticket Code: ([0-9a-fA-F-]+)/);
+  if (ticketCodeMatch && ticketCodeMatch[1]) {
+    console.log("DEBUG: Extracted Ticket Code:", ticketCodeMatch[1]); // Thêm debug
+    return ticketCodeMatch[1];
+  }
+  console.log("DEBUG: Failed to extract Ticket Code. Match result:", ticketCodeMatch); // Thêm debug
+  return null;
+};
+
+
   const handleScanOrSearch = async () => {
     setScanError(null);
-    setCurrentScanResult(null); // Reset kết quả trước khi tìm kiếm mới
+    setCurrentScanResult(null);
 
     if (!scannedTicketCode) {
       setScanError('Vui lòng nhập mã vé hoặc quét QR.');
       return;
     }
 
-    // Tìm vé trong danh sách đã fetch
-    const foundTicket = allTickets.find(t => t.ticketCode === scannedTicketCode);
+    console.log("DEBUG: scannedTicketCode from input:", scannedTicketCode); // Thêm debug
+
+    const actualTicketCode = extractTicketCodeFromQRString(scannedTicketCode);
+
+    if (!actualTicketCode) {
+      setScanError('Định dạng mã QR không hợp lệ hoặc không tìm thấy mã vé.');
+      return;
+    }
+
+    console.log("DEBUG: Actual Ticket Code for search:", actualTicketCode); // Thêm debug
+
+    const foundTicket = allTickets.find(t => t.ticketCode === actualTicketCode);
+
     if (foundTicket) {
+      console.log("DEBUG: Ticket found:", foundTicket); // Thêm debug
       setCurrentScanResult(foundTicket);
-      // Nếu tìm thấy, đảm bảo các trường hợp lỗi trước đó bị xóa
       setScanError(null);
     } else {
-      setScanError('Không tìm thấy vé với mã này cho sự kiện này.');
+      console.log("DEBUG: Ticket NOT found. Searching for:", actualTicketCode, "in allTickets:", allTickets); // Thêm debug
+      setScanError('Không tìm thấy vé với mã này cho sự kiện hiện tại.');
     }
   };
-
-  const filteredTickets = allTickets.filter(ticket =>
-    (ticket.user?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     ticket.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     ticket.ticketCode.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
 
   const pendingTickets = allTickets.filter(t => t.checkInStatus === 'pending');
   const checkedInTickets = allTickets.filter(t => t.checkInStatus === 'checkedIn');
