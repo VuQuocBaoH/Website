@@ -1,3 +1,4 @@
+// event-backend/src/models/User.ts
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IUser extends Document {
@@ -7,6 +8,8 @@ export interface IUser extends Document {
   role: 'user' | 'admin';
   createdAt: Date;
   updatedAt: Date;
+  passwordResetToken?: string; 
+  passwordResetExpires?: Date; 
 }
 
 const UserSchema: Schema = new Schema({
@@ -18,7 +21,7 @@ const UserSchema: Schema = new Schema({
   email: {
     type: String,
     required: true,
-    unique: true, // Email must be unique
+    unique: true, 
     trim: true,
     lowercase: true,
   },
@@ -26,10 +29,10 @@ const UserSchema: Schema = new Schema({
     type: String,
     required: true,
   },
-  role: { 
+  role: {
     type: String,
     enum: ['user', 'admin'],
-    default: 'user', 
+    default: 'user',
   },
   createdAt: {
     type: Date,
@@ -39,9 +42,10 @@ const UserSchema: Schema = new Schema({
     type: Date,
     default: Date.now,
   },
+  passwordResetToken: String, 
+  passwordResetExpires: Date, 
 });
 
-// Update 'updatedAt' field on save
 UserSchema.pre('save', function (next) {
   this.updatedAt = new Date();
   next();

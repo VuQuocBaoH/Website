@@ -20,6 +20,9 @@ import { cn } from "@/lib/utils";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
+// Import danh mục sự kiện từ file constants
+import { eventCategories } from "@/lib/eventCategories"; // Đảm bảo đường dẫn đúng
+
 const API_BASE_URL = 'http://localhost:5000/api';
 
 const scheduleItemSchema = z.object({
@@ -186,20 +189,6 @@ const CreateEvent = () => {
 
                 <FormField
                   control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Địa điểm</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ví dụ: Quận 1, TP.HCM" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
                   name="category"
                   render={({ field }) => (
                     <FormItem>
@@ -209,12 +198,12 @@ const CreateEvent = () => {
                             <SelectTrigger><SelectValue placeholder="Chọn danh mục cho sự kiện" /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Music">Âm nhạc</SelectItem>
-                          <SelectItem value="Food & Drink">Ẩm thực</SelectItem>
-                          <SelectItem value="Business">Kinh doanh</SelectItem>
-                          <SelectItem value="Education">Giáo dục</SelectItem>
-                          <SelectItem value="Gaming">Trò chơi</SelectItem>
-                          <SelectItem value="Social">Xã hội</SelectItem>
+                          {/* Render các SelectItem từ eventCategories */}
+                          {eventCategories.map((category) => (
+                            <SelectItem key={category.value} value={category.value}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />

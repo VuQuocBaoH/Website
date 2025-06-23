@@ -3,10 +3,10 @@ import { Request, Response, RequestHandler } from 'express';
 import Event, { IEvent } from '../models/Event';
 import User from '../models/User';
 import mongoose from 'mongoose';
-import Ticket, { ITicket } from '../models/Ticket'; // Import Ticket model
-import { v4 as uuidv4 } from 'uuid'; // Để tạo mã vé duy nhất
-import QRCode from 'qrcode'; // Để tạo QR code
-import nodemailer from 'nodemailer'; // Để gửi email
+import Ticket, { ITicket } from '../models/Ticket';
+import { v4 as uuidv4 } from 'uuid';
+import QRCode from 'qrcode';
+import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -27,8 +27,8 @@ const generateQRCodeDataURL = async (data: string): Promise<string> => {
     const qrCodeDataUrl = await QRCode.toDataURL(data, { width: 200, margin: 2 });
     return qrCodeDataUrl;
   } catch (err) {
-    console.error('Error generating QR code:', err);
-    throw new Error('Failed to generate QR code');
+    console.error('Lỗi khi tạo mã QR:', err);
+    throw new Error('Không thể tạo mã QR');
   }
 };
 
@@ -38,7 +38,7 @@ export const createEvent = async (req: Request, res: Response): Promise<void> =>
   try {
     const userId = req.user?.id;
     if (!userId) {
-      res.status(401).json({ msg: 'User not authenticated' });
+      res.status(401).json({ msg: 'Người dùng chưa được xác thực' });
       return;
     }
 
@@ -69,7 +69,7 @@ export const createEvent = async (req: Request, res: Response): Promise<void> =>
 
     const user = await User.findById(userId);
     if (!user) {
-      res.status(404).json({ msg: 'User not found' });
+      res.status(404).json({ msg: 'Không tìm thấy người dùng' });
       return;
     }
 
@@ -90,14 +90,14 @@ export const createEvent = async (req: Request, res: Response): Promise<void> =>
       capacity: capacity ? parseInt(capacity) : undefined,
       status: 'active',
       schedule: schedule || [],
-      tickets: [], // Khởi tạo mảng tickets rỗng khi tạo sự kiện mới
+      tickets: [],
     });
 
     await newEvent.save();
     res.status(201).json(newEvent);
   } catch (err: any) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -111,12 +111,12 @@ export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
     let event: any = await Event.findById(req.params.id);
 
     if (!event) {
-      res.status(404).json({ msg: 'Event not found' });
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện' });
       return;
     }
 
     if (event.organizerId.toString() !== userId && userRole !== 'admin') {
-      res.status(403).json({ msg: 'Not authorized to update this event' });
+      res.status(403).json({ msg: 'Không được phép cập nhật sự kiện này' });
       return;
     }
 
@@ -158,7 +158,7 @@ export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
         typeof price.currency !== 'string' ||
         !['vnd', 'usd'].includes(price.currency.toLowerCase())
       ) {
-        res.status(400).json({ msg: 'Invalid price format' });
+        res.status(400).json({ msg: 'Định dạng giá không hợp lệ' });
         return;
       }
       event.price = {
@@ -174,10 +174,10 @@ export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
   } catch (err: any) {
     console.error(err.message);
     if (err.kind === 'ObjectId') {
-      res.status(404).json({ msg: 'Event not found (Invalid ID)' });
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện (ID không hợp lệ)' });
       return;
     }
-    res.status(500).send('Server Error');
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -187,7 +187,7 @@ export const registerForEvent: RequestHandler = async (req, res): Promise<void> 
   try {
     const userId = req.user?.id;
     if (!userId) {
-      res.status(401).json({ msg: 'User not authenticated' });
+      res.status(401).json({ msg: 'Người dùng chưa được xác thực' });
       return;
     }
 
@@ -195,29 +195,29 @@ export const registerForEvent: RequestHandler = async (req, res): Promise<void> 
     const user = await User.findById(userId);
 
     if (!event || !user) {
-      res.status(404).json({ msg: 'Event or User not found' });
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện hoặc người dùng' });
       return;
     }
 
     if (!event.isFree) {
-      res.status(400).json({ msg: 'This is a paid event. Please use the ticket purchase option.' });
+      res.status(400).json({ msg: 'Đây là sự kiện có phí. Vui lòng sử dụng tùy chọn mua vé.' });
       return;
     }
 
     const existingTicket = await Ticket.findOne({ eventId: event._id, userId: userId });
     if (existingTicket) {
-        res.status(400).json({ msg: 'You are already registered for this event.' });
+        res.status(400).json({ msg: 'Bạn đã đăng ký sự kiện này rồi.' });
         return;
     }
-    
+
     const currentTicketsCount = await Ticket.countDocuments({ eventId: event._id });
     if (event.capacity && currentTicketsCount >= event.capacity) {
-        res.status(400).json({ msg: 'Event is full' });
+        res.status(400).json({ msg: 'Sự kiện đã đầy' });
         return;
     }
 
     const ticketCode = uuidv4();
-    const qrCodeData = `Ticket Code: ${ticketCode}\nEvent ID: ${event._id}\nUser ID: ${user.id}`;
+    const qrCodeData = `Mã vé: ${ticketCode}\nID Sự kiện: ${event._id}\nID Người dùng: ${user.id}`;
     const qrCodeUrl = await generateQRCodeDataURL(qrCodeData);
 
     const newTicket = new Ticket({
@@ -232,7 +232,7 @@ export const registerForEvent: RequestHandler = async (req, res): Promise<void> 
 
     await newTicket.save();
 
-    event.tickets.push(newTicket._id as mongoose.Types.ObjectId); //
+    event.tickets.push(newTicket._id as mongoose.Types.ObjectId);
     await event.save();
 
     const mailOptions = {
@@ -247,7 +247,8 @@ export const registerForEvent: RequestHandler = async (req, res): Promise<void> 
         <p><strong>Địa điểm:</strong> ${event.location}, ${event.address || ''}</p>
         <p>Mã vé của bạn: <strong>${ticketCode}</strong></p>
         <p>Vui lòng mang theo QR code này khi đến sự kiện để check-in:</p>
-        <img src="${qrCodeUrl}" alt="QR Code của bạn" style="width:200px; height:200px; display:block; margin: 10px 0;"/>
+        <img src="${qrCodeUrl}" alt="QR Code của bạn" style="width:300px; height:300px; display:block; margin: 10px 0;"/>
+        <p><a href="${process.env.FRONTEND_BASE_URL}/my-tickets" style="display:inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Xem QR Code của tôi</a></p>
         <p>Bạn có thể xem vé của mình tại tài khoản của bạn trên website của chúng tôi.</p>
         <p>Cảm ơn bạn đã tham gia!</p>
         <p>Trân trọng,<br/>Đội ngũ ${event.organizer?.name || 'Tổ chức sự kiện'}</p>
@@ -256,16 +257,16 @@ export const registerForEvent: RequestHandler = async (req, res): Promise<void> 
 
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
-        console.error('Error sending email:', error);
+        console.error('Lỗi khi gửi email:', error);
       } else {
-        console.log('Email sent: ' + info.response);
+        console.log('Email đã gửi: ' + info.response);
       }
     });
 
-    res.status(201).json({ msg: 'Successfully registered for the free event and ticket sent to email!', ticket: newTicket });
+    res.status(201).json({ msg: 'Đã đăng ký thành công sự kiện miễn phí và vé đã được gửi đến email!', ticket: newTicket });
   } catch (err: any) {
-    console.error("Error in registerForEvent:", err.message);
-    res.status(500).send('Server Error');
+    console.error("Lỗi trong registerForEvent:", err.message);
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -306,17 +307,46 @@ export const getEvents: RequestHandler = async (req, res): Promise<void> => {
             endDate.setHours(23, 59, 59, 999);
             query.date = { $gte: startDate, $lte: endDate };
             break;
+        case 'This Weekend':
+            // Lấy ngày hiện tại
+            const currentDay = today.getDay(); // 0 for Sunday, 1 for Monday, ..., 6 for Saturday
+            let daysUntilSaturday;
+
+            if (currentDay === 6) { // If today is Saturday
+                daysUntilSaturday = 0;
+            } else {
+                daysUntilSaturday = 6 - currentDay;
+            }
+
+            startDate = new Date(today);
+            startDate.setDate(today.getDate() + daysUntilSaturday); // Set to Saturday of this week
+            startDate.setHours(0, 0, 0, 0);
+
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 1); // Set to Sunday of this week
+            endDate.setHours(23, 59, 59, 999);
+
+            query.date = { $gte: startDate, $lte: endDate };
+            break;
         case 'This Week':
-            const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
+            const firstDayOfWeek = new Date(today);
+            firstDayOfWeek.setDate(today.getDate() - today.getDay()); // Go to Sunday (start of week)
             firstDayOfWeek.setHours(0, 0, 0, 0);
+
             const lastDayOfWeek = new Date(firstDayOfWeek);
-            lastDayOfWeek.setDate(lastDayOfWeek.getDate() + 6);
+            lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6); // Go to Saturday (end of week)
             lastDayOfWeek.setHours(23, 59, 59, 999);
             query.date = { $gte: firstDayOfWeek, $lte: lastDayOfWeek };
             break;
         case 'This Month':
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
             endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+            query.date = { $gte: startDate, $lte: endDate };
+            break;
+        case 'Next Month':
+            const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            startDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1);
+            endDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0, 23, 59, 59, 999);
             query.date = { $gte: startDate, $lte: endDate };
             break;
         case 'All Upcoming':
@@ -326,18 +356,15 @@ export const getEvents: RequestHandler = async (req, res): Promise<void> => {
           break;
       }
     }
-    // event.registeredAttendees.length is no longer relevant for total attendees.
-    // We should use event.tickets.length (which is populated) or count tickets collection.
-    // For simplicity, we'll assume the current event.registeredAttendees is still used in frontend,
-    // but the backend will populate tickets.
+
     const events = await Event.find(query)
-      .populate('tickets') // Populate tickets to count them if needed
+      .populate('tickets')
       .sort({ date: 1 });
 
     res.json(events);
   } catch (err: any) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -346,13 +373,13 @@ export const getEvents: RequestHandler = async (req, res): Promise<void> => {
 export const getFeaturedEvents: RequestHandler = async (req, res): Promise<void> => {
   try {
     const featuredEvents = await Event.find({ isFeatured: true, date: { $gte: new Date() } })
-      .populate('tickets') // Populate tickets
+      .populate('tickets')
       .sort({ date: 1 })
       .limit(4);
     res.json(featuredEvents);
   } catch (err: any) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -361,20 +388,20 @@ export const getFeaturedEvents: RequestHandler = async (req, res): Promise<void>
 export const getUpcomingEvents: RequestHandler = async (req, res): Promise<void> => {
     try {
       const upcomingEvents = await Event.find({ date: { $gte: new Date() }, isUpcoming: true })
-        .populate('tickets') // Populate tickets
+        .populate('tickets')
         .sort({ date: 1 })
         .limit(8);
       res.json(upcomingEvents);
     } catch (err: any) {
       console.error(err.message);
-      res.status(500).send('Server Error');
+      res.status(500).send('Lỗi máy chủ');
     }
   };
 
 // @route   GET /api/events/:id
 // @desc    Get event by ID
 export const getEventById: RequestHandler = async (req, res): Promise<void> => {
-  console.log(`[getEventById] Request received for Event ID: ${req.params.id}`);
+  console.log(`[getEventById] Yêu cầu nhận được cho ID Sự kiện: ${req.params.id}`);
   try {
     const event = await Event.findById(req.params.id)
       .populate({
@@ -382,24 +409,24 @@ export const getEventById: RequestHandler = async (req, res): Promise<void> => {
         populate: { path: 'userId', select: 'username email' }
       });
 
-    console.log(`[getEventById] Result of findById and populate: ${event ? event.title : 'Event not found in DB'}`);
+    console.log(`[getEventById] Kết quả tìm kiếm theo ID và populate: ${event ? event.title : 'Không tìm thấy Sự kiện trong DB'}`);
 
     if (!event) {
-      console.warn(`[getEventById] Event with ID ${req.params.id} was not found in the database or could not be populated.`);
-      res.status(404).json({ msg: 'Event not found' });
+      console.warn(`[getEventById] Không tìm thấy sự kiện với ID ${req.params.id} trong cơ sở dữ liệu hoặc không thể populate.`);
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện' });
       return;
     }
 
-    console.log(`[getEventById] Successfully fetched event: ${event._id} - ${event.title}`);
+    console.log(`[getEventById] Đã lấy thành công sự kiện: ${event._id} - ${event.title}`);
     res.json(event);
   } catch (err: any) {
     if (err.kind === 'ObjectId') {
-      console.error(`[getEventById] Invalid Event ID format: ${req.params.id}. Error: ${err.message}`);
-      res.status(404).json({ msg: 'Event not found (Invalid ID format)' });
+      console.error(`[getEventById] Định dạng ID Sự kiện không hợp lệ: ${req.params.id}. Lỗi: ${err.message}`);
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện (Định dạng ID không hợp lệ)' });
       return;
     }
-    console.error(`[getEventById] Server Error processing request for ID ${req.params.id}:`, err); // Log cả object lỗi
-    res.status(500).send('Server Error');
+    console.error(`[getEventById] Lỗi máy chủ khi xử lý yêu cầu cho ID ${req.params.id}:`, err);
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -411,23 +438,23 @@ export const deleteEvent: RequestHandler = async (req, res): Promise<void> => {
     const userRole = req.user?.role;
     const event = await Event.findById(req.params.id);
     if (!event) {
-      res.status(404).json({ msg: 'Event not found' });
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện' });
       return;
     }
     if (event.organizerId.toString() !== userId && userRole !== 'admin') {
-      res.status(403).json({ msg: 'Not authorized to delete this event' });
+      res.status(403).json({ msg: 'Không được phép xóa sự kiện này' });
       return;
     }
     // Xóa tất cả các vé liên quan đến sự kiện này
     await Ticket.deleteMany({ eventId: event._id });
     await Event.findByIdAndDelete(req.params.id);
-    res.json({ msg: 'Event removed' });
+    res.json({ msg: 'Sự kiện đã được xóa' });
   } catch (err: any) {
     if (err.kind === 'ObjectId') {
-      res.status(404).json({ msg: 'Event not found (Invalid ID)' });
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện (ID không hợp lệ)' });
       return;
     }
-    res.status(500).send('Server Error');
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -437,73 +464,36 @@ export const unregisterFromEvent: RequestHandler = async (req, res): Promise<voi
     try {
       const userId = req.user?.id;
       if (!userId) {
-          res.status(401).json({ msg: 'Not authorized, no user ID' });
+          res.status(401).json({ msg: 'Không được phép, không có ID người dùng' });
           return;
       }
       const event = await Event.findById(req.params.id);
       if (!event) {
-        res.status(404).json({ msg: 'Event not found' });
+        res.status(404).json({ msg: 'Không tìm thấy sự kiện' });
         return;
       }
-      
+
       const deletedTicket = await Ticket.findOneAndDelete({ eventId: event._id, userId: userId });
 
       if (!deletedTicket) {
-          res.status(400).json({ msg: 'You are not registered for this event or your ticket could not be found.' });
+          res.status(400).json({ msg: 'Bạn chưa đăng ký sự kiện này hoặc vé của bạn không thể tìm thấy.' });
           return;
       }
 
       event.tickets = event.tickets.filter(
-        (ticketId) => ticketId.toString() !== (deletedTicket._id as mongoose.Types.ObjectId).toString() //
+        (ticketId) => ticketId.toString() !== (deletedTicket._id as mongoose.Types.ObjectId).toString()
       );
       await event.save();
 
-      res.json({ msg: 'Successfully unregistered from the event', event });
+      res.json({ msg: 'Đã hủy đăng ký thành công khỏi sự kiện', event });
     } catch (err: any) {
       if (err.kind === 'ObjectId') {
-          res.status(404).json({ msg: 'Event or User not found (Invalid ID)' });
+          res.status(404).json({ msg: 'Không tìm thấy sự kiện hoặc người dùng (ID không hợp lệ)' });
           return;
       }
-      res.status(500).send('Server Error');
+      res.status(500).send('Lỗi máy chủ');
     }
 };
-
-// @route   POST /api/events/:id/unregister
-// @desc    Unregister from an event (by deleting their ticket)
-// export const unregisterFromEvent: RequestHandler = async (req, res): Promise<void> => {
-//     try {
-//       const userId = req.user?.id;
-//       if (!userId) {
-//           res.status(401).json({ msg: 'Not authorized, no user ID' });
-//           return;
-//       }
-//       const event = await Event.findById(req.params.id);
-//       if (!event) {
-//         res.status(404).json({ msg: 'Event not found' });
-//         return;
-//       }
-      
-//       const deletedTicket = await Ticket.findOneAndDelete({ eventId: event._id, userId: userId });
-
-//       if (!deletedTicket) {
-//           res.status(400).json({ msg: 'You are not registered for this event or your ticket could not be found.' });
-//           return;
-//       }
-
-//       event.tickets = event.tickets.filter(
-//         (ticketId) => ticketId.toString() !== deletedTicket._id.toString()
-//       );
-//       await event.save();
-
-//       res.json({ msg: 'Successfully unregistered from the event', event });
-//     } catch (err: any) {
-//       if (err.kind === 'ObjectId') {
-//           res.status(404).json({ msg: 'Event or User not found (Invalid ID)' });
-//           return;
-//       }
-//       res.status(500).send('Server Error');
-//     }
-// };
 
 // @route   GET /api/events/my-events
 // @desc    Get all events created by the logged-in user
@@ -511,15 +501,15 @@ export const getMyEvents: RequestHandler = async (req, res): Promise<void> => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      res.status(401).json({ msg: 'User not authenticated' });
+      res.status(401).json({ msg: 'Người dùng chưa được xác thực' });
       return;
     }
     const myEvents = await Event.find({ organizerId: userId })
-      .populate('tickets') // Populate tickets for organizer's events
+      .populate('tickets')
       .sort({ date: -1 });
     res.json(myEvents);
   } catch (err: any) {
-    res.status(500).send('Server Error');
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -529,15 +519,15 @@ export const getEventsByOrganizer: RequestHandler = async (req, res): Promise<vo
   try {
     const organizerId = req.params.organizerId;
     const events = await Event.find({ organizerId: organizerId })
-      .populate('tickets') // Populate tickets for organizer's events
+      .populate('tickets')
       .sort({ date: -1 });
     res.json(events);
   } catch (err: any) {
     if (err.kind === 'ObjectId') {
-        res.status(404).json({ msg: 'Organizer not found' });
+        res.status(404).json({ msg: 'Không tìm thấy người tổ chức' });
         return;
     }
-    res.status(500).send('Server Error');
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -547,7 +537,7 @@ export const purchaseTicket: RequestHandler = async (req, res): Promise<void> =>
   try {
     const userId = req.user?.id;
     if (!userId) {
-      res.status(401).json({ msg: 'User not authenticated' });
+      res.status(401).json({ msg: 'Người dùng chưa được xác thực' });
       return;
     }
 
@@ -555,34 +545,34 @@ export const purchaseTicket: RequestHandler = async (req, res): Promise<void> =>
     const user = await User.findById(userId);
 
     if (!event || !user) {
-      res.status(404).json({ msg: 'Event or User not found' });
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện hoặc người dùng' });
       return;
     }
 
     if (event.isFree) {
-      res.status(400).json({ msg: 'This is a free event. Please use the registration flow.' });
+      res.status(400).json({ msg: 'Đây là sự kiện miễn phí. Vui lòng sử dụng luồng đăng ký.' });
       return;
     }
 
     if (!event.price || typeof event.price.amount !== 'number' || typeof event.price.currency !== 'string') {
-        res.status(400).json({ msg: 'Event price information is missing or invalid in database.' });
+        res.status(400).json({ msg: 'Thông tin giá sự kiện bị thiếu hoặc không hợp lệ trong cơ sở dữ liệu.' });
         return;
     }
 
     const existingTicket = await Ticket.findOne({ eventId: event._id, userId: userId });
     if (existingTicket) {
-        res.status(400).json({ msg: 'You have already purchased a ticket for this event.' });
+        res.status(400).json({ msg: 'Bạn đã mua vé cho sự kiện này rồi.' });
         return;
     }
 
     const currentTicketsCount = await Ticket.countDocuments({ eventId: event._id });
     if (event.capacity && currentTicketsCount >= event.capacity) {
-        res.status(400).json({ msg: 'Event is full.' });
+        res.status(400).json({ msg: 'Sự kiện đã đầy.' });
         return;
     }
 
     const ticketCode = uuidv4();
-    const qrCodeData = `Ticket Code: ${ticketCode}\nEvent ID: ${event._id}\nUser ID: ${user.id}\nPaid: Yes`;
+    const qrCodeData = `Mã vé: ${ticketCode}\nID Sự kiện: ${event._id}\nID Người dùng: ${user.id}\nĐã thanh toán: Có`;
     const qrCodeUrl = await generateQRCodeDataURL(qrCodeData);
 
     const newTicket = new Ticket({
@@ -597,7 +587,7 @@ export const purchaseTicket: RequestHandler = async (req, res): Promise<void> =>
 
     await newTicket.save();
 
-    event.tickets.push(newTicket._id as mongoose.Types.ObjectId); //
+    event.tickets.push(newTicket._id as mongoose.Types.ObjectId);
     await event.save();
 
     const mailOptions = {
@@ -614,7 +604,7 @@ export const purchaseTicket: RequestHandler = async (req, res): Promise<void> =>
         <p>Mã vé của bạn: <strong>${ticketCode}</strong></p>
         <p>Vui lòng mang theo QR code này khi đến sự kiện để check-in:</p>
         <img src="${qrCodeUrl}" alt="QR Code của bạn" style="width:200px; height:200px; display:block; margin: 10px 0;"/>
-        <p><a href="${process.env.FRONTEND_BASE_URL}/my-tickets?ticketCode=${ticketCode}" style="display:inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Xem QR Code của tôi</a></p>
+        <p><a href="${process.env.FRONTEND_BASE_URL}/my-tickets" style="display:inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Xem QR Code của tôi</a></p>
         <p>Bạn có thể xem vé của mình tại tài khoản của bạn trên website của chúng tôi.</p>
         <p>Chúng tôi mong chờ được gặp bạn!</p>
         <p>Trân trọng,<br/>${event.organizer?.name || 'Tổ chức sự kiện'}</p>
@@ -623,16 +613,16 @@ export const purchaseTicket: RequestHandler = async (req, res): Promise<void> =>
 
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
-        console.error('Error sending email:', error);
+        console.error('Lỗi khi gửi email:', error);
       } else {
-        console.log('Email sent: ' + info.response);
+        console.log('Email đã gửi: ' + info.response);
       }
     });
 
-    res.status(201).json({ msg: 'Ticket purchased successfully and sent to email!', ticket: newTicket });
+    res.status(201).json({ msg: 'Đã mua vé thành công và gửi đến email!', ticket: newTicket });
   } catch (err: any) {
-    console.error("Error in purchaseTicket (demo):", err.message);
-    res.status(500).send('Server Error');
+    console.error("Lỗi trong purchaseTicket (demo):", err.message);
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -642,19 +632,19 @@ export const getMyTickets: RequestHandler = async (req, res): Promise<void> => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      res.status(401).json({ msg: 'User not authenticated' });
+      res.status(401).json({ msg: 'Người dùng chưa được xác thực' });
       return;
     }
 
     const tickets = await Ticket.find({ userId: userId })
-      .populate('eventId') // Populate thông tin sự kiện liên quan
+      .populate('eventId')
       .sort({ purchaseDate: -1 });
 
     const formattedTickets = tickets.map(ticket => {
       const event = ticket.eventId as unknown as IEvent;
-      if (!event) { // Xử lý trường hợp event bị xóa hoặc không populate được
-        console.warn(`Event not found for ticket ${ticket._id}. It might have been deleted.`);
-        return null; // Bỏ qua các vé không có sự kiện liên quan
+      if (!event) {
+        console.warn(`Không tìm thấy sự kiện cho vé ${ticket._id}. Có thể đã bị xóa.`);
+        return null;
       }
       return {
         id: ticket._id,
@@ -673,18 +663,18 @@ export const getMyTickets: RequestHandler = async (req, res): Promise<void> => {
           location: event.location,
           address: event.address,
           image: event.image,
-          isFree: event.isFree, // Đảm bảo isFree được truyền
-          price: event.isFree ? 'Free' : `${event.price?.amount?.toLocaleString('vi-VN')} ${event.price?.currency?.toUpperCase()}`,
+          isFree: event.isFree,
+          price: event.isFree ? 'Miễn phí' : `${event.price?.amount?.toLocaleString('vi-VN')} ${event.price?.currency?.toUpperCase()}`,
           category: event.category,
-          organizerName: event.organizer?.name || 'Unknown Organizer',
+          organizerName: event.organizer?.name || 'Người tổ chức không xác định',
         },
       };
     }).filter(ticket => ticket !== null);
 
     res.json(formattedTickets);
   } catch (err: any) {
-    console.error("Error in getMyTickets:", err.message);
-    res.status(500).send('Server Error');
+    console.error("Lỗi trong getMyTickets:", err.message);
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -692,21 +682,21 @@ export const getEventTickets: RequestHandler = async (req, res): Promise<void> =
   try {
     const userId = req.user?.id;
     const userRole = req.user?.role;
-    const eventId = req.params.id; // Corrected: Use req.params.id as eventId
+    const eventId = req.params.id;
 
     const event = await Event.findById(eventId);
     if (!event) {
-      res.status(404).json({ msg: 'Event not found' });
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện' });
       return;
     }
 
     if (event.organizerId.toString() !== userId && userRole !== 'admin') {
-      res.status(403).json({ msg: 'Not authorized to view tickets for this event.' });
+      res.status(403).json({ msg: 'Không được phép xem vé cho sự kiện này.' });
       return;
     }
 
     const tickets = await Ticket.find({ eventId: eventId })
-      .populate('userId', 'username email') // Populate userId và chỉ lấy username, email
+      .populate('userId', 'username email')
       .sort({ purchaseDate: 1 });
 
     const formattedTickets = tickets.map(ticket => {
@@ -726,8 +716,8 @@ export const getEventTickets: RequestHandler = async (req, res): Promise<void> =
 
     res.json(formattedTickets);
   } catch (err: any) {
-    console.error('Error fetching event tickets:', err.message);
-    res.status(500).send('Server Error');
+    console.error('Lỗi khi lấy vé sự kiện:', err.message);
+    res.status(500).send('Lỗi máy chủ');
   }
 };
 
@@ -830,8 +820,8 @@ export const checkOutTicket: RequestHandler = async (req, res): Promise<void> =>
     }
 
     // Cập nhật trạng thái check-out
-    ticket.checkInStatus = 'pending'; // Trả về trạng thái chờ check-in
-    ticket.checkInTime = undefined; // Xóa thời gian check-in
+    ticket.checkInStatus = 'pending';
+    ticket.checkInTime = undefined;
     await ticket.save();
 
     res.json({ msg: `Check-out thành công cho vé ${ticketCode}!`, ticket });

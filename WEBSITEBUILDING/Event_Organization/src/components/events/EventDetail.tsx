@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import { isPast, parseISO } from 'date-fns'; // Import isPast và parseISO từ date-fns
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -35,12 +36,12 @@ export interface EventDetailProps {
   title: string;
   description: string;
   longDescription: string;
-  date: string;
+  date: string; // date là chuỗi ISO (từ backend), EventDetail sẽ tự định dạng và parse
   time: string;
   location: string;
   address: string;
   image: string;
-  price: string;
+  price: string; // Đã là chuỗi định dạng (ví dụ: "Miễn phí" hoặc "100.000 VND")
   isFree: boolean;
   category: string;
   organizer: {
@@ -52,7 +53,6 @@ export interface EventDetailProps {
   onRegister: (discountCode?: string) => void;
   isRegistered: boolean;
   registeredAttendeesCount?: number;
-  // registeredAttendees: string[]; //
   capacity?: number;
   isOrganizer: boolean;
   schedule?: ScheduleItem[];
@@ -63,7 +63,7 @@ const EventDetail = ({
   title,
   description,
   longDescription,
-  date,
+  date, // date là chuỗi ISO (từ backend), EventDetail sẽ tự định dạng và parse
   time,
   location,
   address,
@@ -76,7 +76,6 @@ const EventDetail = ({
   onRegister,
   isRegistered,
   registeredAttendeesCount = 0,
-  // registeredAttendees, //
   capacity,
   isOrganizer,
   schedule = [],
@@ -89,48 +88,54 @@ const EventDetail = ({
 
   const organizerDisplayImage = organizer.image && organizer.image !== "" ? organizer.image : null;
 
-  // Cập nhật useEffect này để fetch attendeesDetails từ API /events/:id/tickets
+  // Tính toán trạng thái sự kiện đã kết thúc hay chưa
+  // Sử dụng parseISO để chuyển đổi chuỗi ngày ISO từ props thành đối tượng Date
+  const eventDate = parseISO(date); 
+  // isPast sẽ trả về true nếu eventDate đã qua thời điểm hiện tại
+  const isEventOver = isPast(eventDate); 
+
   useEffect(() => {
     const fetchAttendees = async () => {
-      // Chỉ fetch nếu là organizer
       if (isOrganizer) {
         setFetchingAttendees(true);
         setAttendeesError(null);
         try {
           const token = localStorage.getItem('token');
           if (!token) {
-            setAttendeesError('Yêu cầu xác thực để xem danh sách người tham dự.'); // Việt hóa thông báo lỗi
+            setAttendeesError('Yêu cầu xác thực để xem danh sách người tham dự.'); 
             return;
           }
-          // Gọi API mới để lấy danh sách vé của sự kiện, có populate thông tin user
+          // Gọi API để lấy danh sách vé của sự kiện, có populate thông tin user
           const response = await axios.get(`${API_BASE_URL}/events/${id}/tickets`, {
             headers: { 'x-auth-token': token },
           });
           // response.data sẽ là mảng các ticket object, mỗi ticket có thuộc tính user (đã populate)
           setAttendeesDetails(response.data.map((ticket: any) => ({
-            id: ticket.user?.id || ticket.userId, // ID của người dùng
+            id: ticket.user?._id || ticket.userId, // ID của người dùng (dùng _id nếu có)
             username: ticket.user?.username || 'Người dùng ẩn danh',
             email: ticket.user?.email || 'N/A',
             ticketCode: ticket.ticketCode, // Để có thể hiển thị mã vé trong danh sách này
+            isPaid: ticket.isPaid,
+            isFreeTicket: ticket.isFreeTicket,
             checkInStatus: ticket.checkInStatus,
             checkInTime: ticket.checkInTime,
           })));
         } catch (err: any) {
-          console.error('Lỗi khi lấy thông tin người tham dự:', err); // Việt hóa thông báo lỗi
-          setAttendeesError(err.response?.data?.msg || 'Không thể tải danh sách người tham dự.'); // Việt hóa thông báo lỗi
+          console.error('Lỗi khi lấy thông tin người tham dự:', err); 
+          setAttendeesError(err.response?.data?.msg || 'Không thể tải danh sách người tham dự.'); 
         } finally {
           setFetchingAttendees(false);
         }
-      } else { // Nếu không phải organizer, xóa dữ liệu attendees
+      } else { 
         setAttendeesDetails([]);
         setAttendeesError(null);
       }
     };
 
     // Gọi lại khi isOrganizer thay đổi hoặc ID sự kiện thay đổi
+    // Cần thêm `date` vào dependency nếu muốn `isEventOver` được re-evaluate khi `date` prop thay đổi
     fetchAttendees();
-  }, [id, isOrganizer]);
-
+  }, [id, isOrganizer, date]); // Thêm 'date' vào dependency array để cập nhật trạng thái sự kiện kết thúc
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -139,12 +144,19 @@ const EventDetail = ({
         <div className="lg:w-2/3">
           {/* Header */}
           <div className="mb-8">
-            <Badge className="mb-4 bg-event-purple">{category}</Badge>
+            {/* Hiển thị badge "Đã kết thúc" nếu sự kiện đã qua ngày */}
+            {isEventOver ? (
+                <Badge className="mb-4 bg-gray-500">Đã kết thúc</Badge>
+            ) : (
+                <Badge className="mb-4 bg-event-purple">{category}</Badge>
+            )}
+            
             <h1 className="text-3xl md:text-4xl font-bold mb-4">{title}</h1>
             <div className="flex flex-wrap items-center text-gray-700 mb-6 gap-x-6 gap-y-2">
               <div className="flex items-center">
                 <Calendar className="h-5 w-5 mr-2 text-event-purple" />
-                <span>{date}</span>
+                {/* Format ngày để hiển thị thân thiện với người dùng */}
+                <span>{new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</span> 
               </div>
               <div className="flex items-center">
                 <Clock className="h-5 w-5 mr-2 text-event-purple" />
@@ -198,7 +210,7 @@ const EventDetail = ({
 
             <TabsContent value="about" className="space-y-6">
               <div className="prose max-w-none">
-                <h3 className="text-xl font-semibold mb-4">Mô tả sự kiện</h3> {/* Thay đổi từ "Thông báo" thành "Mô tả sự kiện" */}
+                <h3 className="text-xl font-semibold mb-4">Mô tả sự kiện</h3>
                 <p className="text-gray-700 whitespace-pre-wrap">{longDescription || description}</p>
               </div>
             </TabsContent>
@@ -248,7 +260,7 @@ const EventDetail = ({
                         <p className="text-sm text-gray-500">Người tổ chức</p>
                       </div>
                     </div>
-                    <p className="text-gray-700">{organizer.description || `Tìm hiểu về ${organizer.name}, người tổ chức sự kiện này.`}</p> {/* Việt hóa chuỗi mặc định */}
+                    <p className="text-gray-700">{organizer.description || `Tìm hiểu về ${organizer.name}, người tổ chức sự kiện này.`}</p> 
                     <Link to={`/organizers/${organizerId}`}>
                         <Button variant="outline" className="mt-4">
                             Xem hồ sơ
@@ -309,7 +321,7 @@ const EventDetail = ({
                 <div>
                   <p className="text-sm text-gray-500">Giá tiền</p>
                   <p className="text-xl font-semibold">
-                    {price === 'Free' ? 'Miễn phí' : price} {/* Price is already formatted from EventPage */}
+                    {price === 'Free' ? 'Miễn phí' : price} 
                   </p>
                 </div>
                 <div className="flex space-x-2">
@@ -342,6 +354,7 @@ const EventDetail = ({
                           className="pl-10"
                           value={discountCode}
                           onChange={(e) => setDiscountCode(e.target.value)}
+                          disabled={isEventOver} 
                         />
                       </div>
                     </div>
@@ -350,17 +363,24 @@ const EventDetail = ({
                   <Button
                     className="w-full bg-event-purple hover:bg-event-dark-purple"
                     onClick={() => onRegister(discountCode)}
-                    disabled={isRegistered}
+                    disabled={isRegistered || isEventOver} 
                   >
                     <Ticket className="mr-2 h-5 w-5" />
-                    {isRegistered
-                      ? 'Đã đăng ký'
-                      : (isFree ? 'Đăng ký miễn phí' : 'Mua vé')} {/* Văn bản nút dựa vào isFree */}
+                    {isEventOver ? ( 
+                        'Sự kiện đã kết thúc'
+                    ) : (
+                        isRegistered
+                        ? 'Đã đăng ký'
+                        : (isFree ? 'Đăng ký miễn phí' : 'Mua vé')
+                    )}
                   </Button>
                 </>
               ) : (
                 <div className="text-center p-4 bg-gray-100 rounded-md">
                   <p className="text-sm font-medium text-gray-700">Bạn là người tổ chức sự kiện này.</p>
+                  {isEventOver && (
+                      <p className="text-sm text-gray-500 mt-1">Sự kiện này đã kết thúc.</p>
+                  )}
                 </div>
               )}
 
@@ -381,7 +401,8 @@ const EventDetail = ({
                 <Calendar className="h-5 w-5 text-gray-500 mt-0.5" />
                 <div>
                   <p className="font-medium">Thời gian</p>
-                  <p className="text-sm text-gray-600">{date}</p>
+                  {/* Format ngày để hiển thị thân thiện với người dùng */}
+                  <p className="text-sm text-gray-600">{new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</p> 
                   <p className="text-sm text-gray-600">{time}</p>
                 </div>
               </div>

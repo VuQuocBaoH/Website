@@ -17,7 +17,8 @@ import ProfilePage from "./pages/ProfilePage";
 import OrganizerProfilePage from './pages/OrganizerProfilePage';
 import MyTicketsPage from './pages/MyTicketsPage';
 import EventAttendeesPage from './pages/EventAttendeesPage'; 
-
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,8 @@ const App = () => (
           <Route path="/event/:eventId/attendees" element={<EventAttendeesPage />} /> 
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

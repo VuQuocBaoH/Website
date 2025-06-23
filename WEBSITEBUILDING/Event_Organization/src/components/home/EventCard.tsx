@@ -9,7 +9,7 @@ export interface EventCardProps {
   time: string;
   location: string;
   image: string;
-  price?: string | { amount: number; currency: string }; // giữ nguyên comment
+  price?: string | { amount: number; currency: string };
   category: string;
   organizer: string;
 }
@@ -29,7 +29,7 @@ const EventCard = ({
   if (typeof price === 'object' && price !== null) {
     displayPrice = `${price.amount.toLocaleString()} ${price.currency.toUpperCase()}`;
   } else if (price === 'Free') {
-    displayPrice = 'Miễn phí'; // Thay đổi từ 'Free' sang 'Miễn phí'
+    displayPrice = 'Miễn phí';
   }
 
   return (

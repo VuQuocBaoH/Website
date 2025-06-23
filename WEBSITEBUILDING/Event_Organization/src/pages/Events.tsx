@@ -5,133 +5,200 @@ import EventCard, { EventCardProps } from '@/components/home/EventCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-Search,
-Filter,
-ChevronDown,
-X
+  Search,
+  Filter,
+  ChevronDown,
+  X
 } from 'lucide-react';
 import {
-Select,
-SelectContent,
-SelectItem,
-SelectTrigger,
-SelectValue
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+// Import danh mục sự kiện từ file constants
+import { eventCategories } from "@/lib/eventCategories";
+
 const API_BASE_URL = 'http://localhost:5000/api';
+
+// Định nghĩa cấu trúc cho category (giữ nguyên)
+interface CategoryOption {
+  name: string; // Tên hiển thị (tiếng Việt)
+  value: string; // Giá trị gửi lên backend (chuẩn hóa, tiếng Anh)
+}
 
 const Events = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [priceRange, setPriceRange] = useState([0, 500]);
+
+  // State cục bộ cho UI, sẽ được đồng bộ từ URL
+  const [localSearchTerm, setLocalSearchTerm] = useState('');
+  const [localSelectedCategory, setLocalSelectedCategory] = useState<string | null>(null);
+  const [localSelectedDate, setLocalSelectedDate] = useState<string | null>(null);
+
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const [allEvents, setAllEvents] = useState<EventCardProps[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const categories = [
-    'Âm nhạc', 'Kinh doanh', 'Ẩm thực & Đồ uống', 'Sức khỏe', 'Hài kịch', // Việt hóa
-    'Thể thao', 'Giáo dục', 'Nghệ thuật', 'Trò chơi', 'Thời trang', 'Khác' // Việt hóa
-  ];
-
   const dateOptions = [
-    'Hôm nay', 'Ngày mai', 'Cuối tuần này', 'Tuần này', 'Tháng này', 'Tháng sau', 'Tất cả sắp tới' // Việt hóa
+    'Hôm nay', 'Ngày mai', 'Cuối tuần này', 'Tuần này', 'Tháng này', 'Tháng sau', 'Tất cả sắp tới'
   ];
 
+  // Hàm helper để tìm tên hiển thị từ giá trị
+  const getCategoryNameByValue = (value: string | null): string | null => {
+    if (!value) return null;
+    const found = eventCategories.find(cat => cat.value === value);
+    return found ? found.name : null;
+  };
+
+  // Ánh xạ tên tiếng Việt của ngày thành giá trị tiếng Anh cho backend
+  const mapDateOptionToBackendValue = (option: string | null): string | null => {
+    if (!option) return null;
+    switch (option) {
+      case 'Hôm nay': return 'Today';
+      case 'Ngày mai': return 'Tomorrow';
+      case 'Cuối tuần này': return 'This Weekend';
+      case 'Tuần này': return 'This Week';
+      case 'Tháng này': return 'This Month';
+      case 'Tháng sau': return 'Next Month';
+      case 'Tất cả sắp tới': return 'All Upcoming';
+      default: return option; // Trường hợp khác
+    }
+  };
+
+  // Ánh xạ giá trị tiếng Anh từ backend thành tên tiếng Việt cho UI
+  const mapBackendValueToDateOption = (value: string | null): string | null => {
+    if (!value) return null;
+    switch (value) {
+      case 'Today': return 'Hôm nay';
+      case 'Tomorrow': return 'Ngày mai';
+      case 'This Weekend': return 'Cuối tuần này';
+      case 'This Week': return 'Tuần này';
+      case 'This Month': return 'Tháng này';
+      case 'Next Month': return 'Tháng sau';
+      case 'All Upcoming': return 'Tất cả sắp tới';
+      default: return value;
+    }
+  };
+
+
+  // useCallback cho fetchEvents để tránh tạo lại hàm liên tục
   const fetchEvents = useCallback(async (
-    currentSearchTerm: string,
-    currentSelectedCategory: string | null,
-    currentSelectedDate: string | null
+    searchTermParam: string,
+    categoryParam: string | null,
+    dateFilterParam: string | null
   ) => {
     setLoading(true);
     setError(null);
     try {
       const params: any = {};
-      if (currentSearchTerm) params.search = currentSearchTerm;
-      if (currentSelectedCategory) params.category = currentSelectedCategory;
-      if (currentSelectedDate) params.dateFilter = currentSelectedDate;
+      if (searchTermParam) params.search = searchTermParam;
+      if (categoryParam) params.category = categoryParam;
+      if (dateFilterParam) params.dateFilter = dateFilterParam;
 
       const response = await axios.get(`${API_BASE_URL}/events`, { params });
       setAllEvents(response.data.map((event: any) => ({
           id: event._id,
           title: event.title,
-          date: new Date(event.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }), // Việt hóa định dạng ngày
+          date: new Date(event.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }),
           time: event.time,
           location: event.location,
           image: event.image,
-          price: event.price,
+          price: event.isFree ? { amount: 0, currency: 'vnd' } : event.price, // Ensure price is always an object for EventCard
           category: event.category,
           organizer: event.organizer.name
       })));
     } catch (err) {
-      console.error('Lỗi khi lấy sự kiện:', err); // Việt hóa
-      setError('Không thể tải sự kiện.'); // Việt hóa
+      console.error('Lỗi khi lấy sự kiện:', err);
+      setError('Không thể tải sự kiện.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, []); // Dependencies: empty array as it relies on its parameters
 
+  // Effect để đọc URL params, cập nhật state cục bộ và gọi API
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const searchFromUrl = queryParams.get('search') || '';
-    const categoryFromUrl = queryParams.get('category') || null;
-    const dateFromUrl = queryParams.get('dateFilter') || null;
+    const categoryFromUrl = queryParams.get('category') || null; // value chuẩn hóa
+    const dateFilterFromUrl = queryParams.get('dateFilter') || null; // value tiếng Anh từ backend
 
-    let needsStateUpdate = false;
-    if (searchFromUrl !== searchTerm) {
-      setSearchTerm(searchFromUrl);
-      needsStateUpdate = true;
-    }
-    if (categoryFromUrl !== selectedCategory) {
-      setSelectedCategory(categoryFromUrl);
-      needsStateUpdate = true;
-    }
-    if (dateFromUrl !== selectedDate) {
-        setSelectedDate(dateFromUrl);
-        needsStateUpdate = true;
-    }
+    // Cập nhật state cục bộ từ URL
+    setLocalSearchTerm(searchFromUrl);
+    setLocalSelectedCategory(categoryFromUrl);
+    setLocalSelectedDate(mapBackendValueToDateOption(dateFilterFromUrl)); // Chuyển đổi sang tiếng Việt cho UI
 
+    // Gọi fetchEvents với các giá trị từ URL để đảm bảo dữ liệu được tải đúng
+    fetchEvents(searchFromUrl, categoryFromUrl, dateFilterFromUrl);
+
+  }, [location.search, fetchEvents]); // Chỉ phụ thuộc vào location.search và fetchEvents
+
+
+  // Hàm chung để cập nhật URL khi có thay đổi bộ lọc
+  const updateUrlParams = useCallback((
+    newSearchTerm: string,
+    newSelectedCategory: string | null,
+    newSelectedDate: string | null
+  ) => {
     const newQueryParams = new URLSearchParams();
-    if (searchTerm || searchFromUrl) newQueryParams.set('search', searchTerm || searchFromUrl);
-    if (selectedCategory || categoryFromUrl) newQueryParams.set('category', selectedCategory || categoryFromUrl);
-    if (selectedDate || dateFromUrl) newQueryParams.set('dateFilter', selectedDate || dateFromUrl);
+    if (newSearchTerm) newQueryParams.set('search', newSearchTerm);
+    if (newSelectedCategory) newQueryParams.set('category', newSelectedCategory);
+    
+    const backendDateValue = mapDateOptionToBackendValue(newSelectedDate);
+    if (backendDateValue) newQueryParams.set('dateFilter', backendDateValue);
 
     const newUrlSearch = newQueryParams.toString();
-    const currentUrlSearch = location.search.substring(1);
+    const currentUrlSearch = location.search.substring(1); // Lấy phần query string hiện tại
 
+    // Chỉ navigate nếu URL thực sự thay đổi
     if (newUrlSearch !== currentUrlSearch) {
       navigate({ search: newQueryParams.toString() }, { replace: true });
     }
+  }, [location.search, navigate]);
 
-    fetchEvents(
-      searchFromUrl,
-      categoryFromUrl,
-      dateFromUrl
-    );
 
-  }, [location.search, fetchEvents, navigate]);
+  // Handlers cho các bộ lọc để cập nhật local state và sau đó cập nhật URL
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSearchTerm = e.target.value;
+    setLocalSearchTerm(newSearchTerm);
+    // Khi người dùng gõ, không cần update URL ngay, chỉ update khi apply filters hoặc onBlur
+    // Hoặc có thể thêm debounce nếu muốn search real-time
+  };
 
+  const handleCategoryChange = (value: string) => {
+    const newCategory = value === localSelectedCategory ? null : value; // Toggle selection
+    setLocalSelectedCategory(newCategory);
+    updateUrlParams(localSearchTerm, newCategory, localSelectedDate); // Update URL immediately
+  };
+
+  const handleDateChange = (value: string) => {
+    const newDate = value === localSelectedDate ? null : value; // Toggle selection (optional, usually date selects are not toggled)
+    setLocalSelectedDate(newDate);
+    updateUrlParams(localSearchTerm, localSelectedCategory, newDate); // Update URL immediately
+  };
 
   const handleApplyFilters = () => {
-    fetchEvents(searchTerm, selectedCategory, selectedDate);
+    // Khi áp dụng, chúng ta đã có local state chính xác
+    // updateUrlParams sẽ đảm bảo URL được đồng bộ và fetchEvents sẽ chạy
+    updateUrlParams(localSearchTerm, localSelectedCategory, localSelectedDate);
+    setShowFilters(false);
   };
 
   const clearFilters = () => {
-    setSearchTerm('');
-    setSelectedCategory(null);
-    setPriceRange([0, 500]);
-    setSelectedDate(null);
+    setLocalSearchTerm('');
+    setLocalSelectedCategory(null);
+    setLocalSelectedDate(null);
+    updateUrlParams('', null, null); // Clear all params in URL
   };
 
+  // filteredEvents now directly reflects `allEvents` which are already filtered by the API call
   const filteredEvents = allEvents;
 
   return (
@@ -139,28 +206,32 @@ const Events = () => {
       <Navbar />
 
       <main className="flex-grow bg-gray-50">
-        {/* Header section */}
         <section className="bg-white border-b border-gray-200">
           <div className="container mx-auto px-4 py-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">Khám phá sự kiện</h1> {/* Việt hóa */}
+            <h1 className="text-3xl font-bold text-gray-900 mb-6">Khám phá sự kiện</h1>
 
-            {/* Search and filter bar */}
             <div className="flex flex-col md:flex-row gap-4">
               <div className="relative flex-grow">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   type="text"
-                  placeholder="Tìm kiếm sự kiện" // Việt hóa
+                  placeholder="Tìm kiếm sự kiện"
                   className="pl-10 pr-4"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={localSearchTerm}
+                  onChange={handleSearchChange}
+                  // Optional: onBlur or onKeyPress for instant search without apply button
+                  onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                          handleApplyFilters();
+                      }
+                  }}
                 />
               </div>
 
               <div className="flex gap-2">
-                <Select onValueChange={(val) => setSelectedDate(val)} value={selectedDate || ""}>
+                <Select onValueChange={handleDateChange} value={localSelectedDate || ""}>
                   <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Thời gian" /> {/* Việt hóa */}
+                    <SelectValue placeholder="Thời gian" />
                   </SelectTrigger>
                   <SelectContent>
                     {dateOptions.map((option) => (
@@ -177,157 +248,115 @@ const Events = () => {
                   className="flex items-center"
                 >
                   <Filter className="mr-2 h-4 w-4" />
-                  Bộ lọc {/* Việt hóa */}
+                  Bộ lọc
                   <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </div>
             </div>
 
-            {/* Advanced filters */}
             {showFilters && (
               <div className="mt-4 p-4 bg-white border border-gray-200 rounded-lg animate-fade-in">
                 <div className="flex justify-between mb-4">
-                  <h3 className="font-medium">Bộ lọc nâng cao</h3> {/* Việt hóa */}
+                  <h3 className="font-medium">Bộ lọc nâng cao</h3>
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-500 h-auto py-1">
                     <X className="mr-1 h-3 w-3" />
-                    Xóa bộ lọc {/* Việt hóa */}
+                    Xóa bộ lọc
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Categories */}
                   <div>
-                    <h4 className="text-sm font-medium mb-2">Danh mục</h4> {/* Việt hóa */}
+                    <h4 className="text-sm font-medium mb-2">Danh mục</h4>
                     <div className="grid grid-cols-2 gap-2">
-                      {categories.map((category) => (
-                        <div key={category} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`category-${category}`}
-                            checked={selectedCategory === category}
-                            onCheckedChange={() =>
-                              setSelectedCategory(selectedCategory === category ? null : category)
-                            }
+                      {eventCategories.map((category) => (
+                        <div key={category.value} className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            id={`category-${category.value}`}
+                            name="category-filter"
+                            checked={localSelectedCategory === category.value}
+                            onChange={() => handleCategoryChange(category.value)} // Sử dụng handleCategoryChange
+                            className="form-radio h-4 w-4 text-event-purple"
                           />
-                          <label htmlFor={`category-${category}`} className="text-sm">
-                            {category}
-                        </label>
+                          <label htmlFor={`category-${category.value}`} className="text-sm">
+                            {category.name}
+                          </label>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Price Range */}
-              <div>
-                <h4 className="text-sm font-medium mb-2">Khoảng giá</h4> {/* Việt hóa */}
-                <div className="px-2">
-                  <Slider
-                    defaultValue={priceRange}
-                    max={500}
-                    step={10}
-                    minStepsBetweenThumbs={1}
-                    onValueChange={setPriceRange}
-                    className="my-6"
-                  />
-                  <div className="flex justify-between text-sm text-gray-500">
-                    <div>${priceRange[0]}</div>
-                    <div>${priceRange[1]}+</div>
                   </div>
                 </div>
-              </div>
 
-              {/* More filters */}
-              <div>
-                <h4 className="text-sm font-medium mb-2">Tùy chọn khác</h4> {/* Việt hóa */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="free-events" />
-                    <label htmlFor="free-events" className="text-sm">Chỉ sự kiện miễn phí</label> {/* Việt hóa */}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="online-events" />
-                    <label htmlFor="online-events" className="text-sm">Sự kiện trực tuyến</label> {/* Việt hóa */}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="accessible-events" />
-                    <label htmlFor="accessible-events" className="text-sm">Địa điểm dễ tiếp cận</label> {/* Việt hóa */}
-                  </div>
+                <div className="mt-6 flex justify-end">
+                  <Button className="bg-event-purple hover:bg-event-dark-purple" onClick={handleApplyFilters}>
+                    Áp dụng bộ lọc
+                  </Button>
                 </div>
               </div>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <Button className="bg-event-purple hover:bg-event-dark-purple" onClick={handleApplyFilters}>
-                Áp dụng bộ lọc {/* Việt hóa */}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Applied filters */}
-        {(searchTerm || selectedCategory || selectedDate) && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            {searchTerm && (
-              <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                Tìm kiếm: {searchTerm} {/* Việt hóa */}
-                <X
-                  className="h-3 w-3 ml-1 cursor-pointer"
-                  onClick={() => setSearchTerm('')}
-                />
-              </Badge>
             )}
 
-            {selectedCategory && (
-              <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                Danh mục: {selectedCategory} {/* Việt hóa */}
-                <X
-                  className="h-3 w-3 ml-1 cursor-pointer"
-                  onClick={() => setSelectedCategory(null)}
-                />
-              </Badge>
-            )}
+            {(localSearchTerm || localSelectedCategory || localSelectedDate) && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {localSearchTerm && (
+                  <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
+                    Tìm kiếm: {localSearchTerm}
+                    <X
+                      className="h-3 w-3 ml-1 cursor-pointer"
+                      onClick={() => { setLocalSearchTerm(''); updateUrlParams('', localSelectedCategory, localSelectedDate); }}
+                    />
+                  </Badge>
+                )}
 
-            {selectedDate && (
-              <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                Ngày: {selectedDate} {/* Việt hóa */}
-                <X
-                  className="h-3 w-3 ml-1 cursor-pointer"
-                  onClick={() => setSelectedDate(null)}
-                />
-              </Badge>
-            )}
+                {localSelectedCategory && (
+                  <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
+                    Danh mục: {getCategoryNameByValue(localSelectedCategory)}
+                    <X
+                      className="h-3 w-3 ml-1 cursor-pointer"
+                      onClick={() => { setLocalSelectedCategory(null); updateUrlParams(localSearchTerm, null, localSelectedDate); }}
+                    />
+                  </Badge>
+                )}
 
-            {(searchTerm || selectedCategory || selectedDate) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="h-auto py-1 px-2 text-xs"
-              >
-                Xóa tất cả {/* Việt hóa */}
-              </Button>
+                {localSelectedDate && (
+                  <Badge variant="secondary" className="flex items-center gap-1 px-3 py-1">
+                    Ngày: {localSelectedDate}
+                    <X
+                      className="h-3 w-3 ml-1 cursor-pointer"
+                      onClick={() => { setLocalSelectedDate(null); updateUrlParams(localSearchTerm, localSelectedCategory, null); }}
+                    />
+                  </Badge>
+                )}
+
+                {(localSearchTerm || localSelectedCategory || localSelectedDate) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="h-auto py-1 px-2 text-xs"
+                  >
+                    Xóa tất cả
+                  </Button>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
-    </section>
+        </section>
 
-        {/* Events grid */}
         <section className="py-8">
           <div className="container mx-auto px-4">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold">
-                {loading ? 'Đang tải...' : `${filteredEvents.length} ${filteredEvents.length === 1 ? 'Sự kiện' : 'Sự kiện'} được tìm thấy`} {/* Việt hóa */}
+                {loading ? 'Đang tải...' : `${filteredEvents.length} ${filteredEvents.length === 1 ? 'Sự kiện' : 'Sự kiện'} được tìm thấy`}
               </h2>
               <Select defaultValue="recommended">
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Sắp xếp theo" /> {/* Việt hóa */}
+                  <SelectValue placeholder="Sắp xếp theo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="recommended">Đề xuất</SelectItem> {/* Việt hóa */}
-                  <SelectItem value="date-asc">Ngày: Sớm nhất</SelectItem> {/* Việt hóa */}
-                  <SelectItem value="date-desc">Ngày: Muộn nhất</SelectItem> {/* Việt hóa */}
-                  <SelectItem value="price-asc">Giá: Thấp đến cao</SelectItem> {/* Việt hóa */}
-                  <SelectItem value="price-desc">Giá: Cao đến thấp</SelectItem> {/* Việt hóa */}
+                  <SelectItem value="recommended">Đề xuất</SelectItem>
+                  <SelectItem value="date-asc">Ngày: Sớm nhất</SelectItem>
+                  <SelectItem value="date-desc">Ngày: Muộn nhất</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -342,15 +371,15 @@ const Events = () => {
               </div>
             ) : !loading && (
               <div className="text-center py-12">
-                <h3 className="text-xl font-medium mb-2">Không tìm thấy sự kiện nào</h3> {/* Việt hóa */}
-                <p className="text-gray-500 mb-6">Hãy thử điều chỉnh tìm kiếm hoặc bộ lọc để tìm thứ bạn đang tìm kiếm.</p> {/* Việt hóa */}
-                <Button onClick={clearFilters}>Xóa tất cả bộ lọc</Button> {/* Việt hóa */}
+                <h3 className="text-xl font-medium mb-2">Không tìm thấy sự kiện nào</h3>
+                <p className="text-gray-500 mb-6">Hãy thử điều chỉnh tìm kiếm hoặc bộ lọc để tìm thứ bạn đang tìm kiếm.</p>
+                <Button onClick={clearFilters}>Xóa tất cả bộ lọc</Button>
               </div>
             )}
 
             {!loading && filteredEvents.length > 0 && (
               <div className="mt-10 flex justify-center">
-                <Button variant="outline" size="lg">Tải thêm sự kiện</Button> {/* Việt hóa */}
+                <Button variant="outline" size="lg">Tải thêm sự kiện</Button>
               </div>
             )}
           </div>

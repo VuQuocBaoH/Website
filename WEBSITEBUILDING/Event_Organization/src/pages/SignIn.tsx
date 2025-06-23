@@ -97,7 +97,11 @@ const SignIn = () => {
             <Button className="w-full bg-event-purple hover:bg-event-dark-purple" type="submit" disabled={loading}>
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </Button>
-
+            <div className="text-sm text-center">
+            <Link to="/forgot-password" className="font-medium text-event-purple hover:text-event-dark-purple">
+              Quên mật khẩu?
+            </Link>
+          </div>
             <p className="text-center text-sm text-gray-600">
               Chưa có tài khoản?{" "}
               <Link to="/signup" className="text-event-purple hover:underline">

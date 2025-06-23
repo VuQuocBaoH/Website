@@ -39,13 +39,17 @@ const MyTicketsPage = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // State mới để quản lý modal QR code
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [currentQrCodeUrl, setCurrentQrCodeUrl] = useState('');
+
   useEffect(() => {
     const fetchMyTickets = async () => {
       setLoading(true);
       setError(null);
       const token = localStorage.getItem('token');
       if (!token) {
-        toast.error('Bạn cần đăng nhập để xem vé của mình.'); // Việt hóa
+        toast.error('Bạn cần đăng nhập để xem vé của mình.');
         navigate('/signin');
         return;
       }
@@ -56,9 +60,9 @@ const MyTicketsPage = () => {
         });
         setTickets(response.data);
       } catch (err: any) {
-        console.error('Lỗi khi lấy vé của tôi:', err.response?.data || err.message); // Việt hóa
-        setError(err.response?.data?.msg || 'Không thể tải vé của bạn.'); // Việt hóa
-        toast.error('Không thể tải vé của bạn.'); // Việt hóa
+        console.error('Lỗi khi lấy vé của tôi:', err.response?.data || err.message);
+        setError(err.response?.data?.msg || 'Không thể tải vé của bạn.');
+        toast.error('Không thể tải vé của bạn.');
       } finally {
         setLoading(false);
       }
@@ -66,6 +70,18 @@ const MyTicketsPage = () => {
 
     fetchMyTickets();
   }, []);
+
+  // Hàm mở modal QR
+  const openQrModal = (qrUrl: string) => {
+    setCurrentQrCodeUrl(qrUrl);
+    setIsQrModalOpen(true);
+  };
+
+  // Hàm đóng modal QR
+  const closeQrModal = () => {
+    setIsQrModalOpen(false);
+    setCurrentQrCodeUrl('');
+  };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải vé của bạn...</div>;
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
@@ -125,15 +141,18 @@ const MyTicketsPage = () => {
                     </div>
                     {/* Hiển thị QR Code */}
                     {ticket.qrCodeUrl && (
-                      <div className="relative group">
+                      // Thay đổi ở đây: Thêm onClick để mở modal
+                      <div className="relative"> {/* Bỏ "group" class nếu không dùng hover nữa */}
                         <img
                           src={ticket.qrCodeUrl}
-                          alt="Mã QR" // Việt hóa
+                          alt="Mã QR"
                           className="w-16 h-16 border rounded-sm cursor-pointer"
+                          onClick={() => openQrModal(ticket.qrCodeUrl)} // Khi click sẽ mở modal
                         />
-                        <div className="absolute left-1/2 transform -translate-x-1/2 -top-20 bg-white p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
-                            <img src={ticket.qrCodeUrl} alt="Mã QR Lớn" className="w-48 h-48" /> {/* Việt hóa */}
-                        </div>
+                        {/* Phần hiển thị QR lớn khi hover có thể được bỏ đi hoặc giữ lại tùy ý, nhưng nếu bạn muốn chỉ dùng click thì có thể xóa div này */}
+                        {/* <div className="absolute left-1/2 transform -translate-x-1/2 -top-20 bg-white p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
+                            <img src={ticket.qrCodeUrl} alt="Mã QR Lớn" className="w-48 h-48" />
+                        </div> */}
                       </div>
                     )}
                   </div>
@@ -143,6 +162,32 @@ const MyTicketsPage = () => {
           </div>
         )}
       </main>
+
+      {/* Modal hiển thị QR Code lớn */}
+      {isQrModalOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          onClick={closeQrModal} // Đóng modal khi click ra ngoài
+        >
+          <div
+            className="bg-white p-6 rounded-lg shadow-xl relative"
+            onClick={(e) => e.stopPropagation()} // Ngăn chặn sự kiện click lan truyền ra ngoài modal
+          >
+            <button
+              onClick={closeQrModal}
+              className="absolute top-3 right-3 text-gray-700 hover:text-gray-900 text-2xl font-bold"
+            >
+              &times;
+            </button>
+            <h2 className="text-2xl font-bold mb-4 text-center">Mã QR của bạn</h2>
+            {currentQrCodeUrl && (
+              <img src={currentQrCodeUrl} alt="Mã QR Lớn" className="w-80 h-80 mx-auto" />
+            )}
+            <p className="text-center text-sm text-gray-500 mt-4">Nhấn vào bất kỳ đâu bên ngoài để đóng</p>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

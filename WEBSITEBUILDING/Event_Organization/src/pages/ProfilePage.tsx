@@ -119,7 +119,7 @@ const ProfilePage = () => {
       localStorage.setItem('user', JSON.stringify(response.data.user));
       window.dispatchEvent(new Event('storage')); 
     } catch (error: any) {
-      console.error('Error updating profile:', error.response?.data || error.message);
+      console.error('Lỗi cập nhật hồ sơ:', error.response?.data || error.message);
       toast.error(error.response?.data?.msg || "Không thể cập nhật hồ sơ.");
     }
   };
@@ -136,7 +136,7 @@ const ProfilePage = () => {
       toast.success(response.data.msg || "Mật khẩu đã được đổi thành công!");
       passwordForm.reset();
     } catch (error: any) {
-      console.error('Error changing password:', error.response?.data || error.message);
+      console.error('Lỗi đổi mật khẩu:', error.response?.data || error.message);
       toast.error(error.response?.data?.msg || "Không thể đổi mật khẩu.");
     }
   };
