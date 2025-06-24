@@ -8,7 +8,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Ticket, Calendar, MapPin, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 interface TicketDisplayProps {
   id: string;
@@ -141,18 +141,13 @@ const MyTicketsPage = () => {
                     </div>
                     {/* Hiển thị QR Code */}
                     {ticket.qrCodeUrl && (
-                      // Thay đổi ở đây: Thêm onClick để mở modal
-                      <div className="relative"> {/* Bỏ "group" class nếu không dùng hover nữa */}
+                      <div className="relative"> 
                         <img
                           src={ticket.qrCodeUrl}
                           alt="Mã QR"
                           className="w-16 h-16 border rounded-sm cursor-pointer"
-                          onClick={() => openQrModal(ticket.qrCodeUrl)} // Khi click sẽ mở modal
+                          onClick={() => openQrModal(ticket.qrCodeUrl)}
                         />
-                        {/* Phần hiển thị QR lớn khi hover có thể được bỏ đi hoặc giữ lại tùy ý, nhưng nếu bạn muốn chỉ dùng click thì có thể xóa div này */}
-                        {/* <div className="absolute left-1/2 transform -translate-x-1/2 -top-20 bg-white p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
-                            <img src={ticket.qrCodeUrl} alt="Mã QR Lớn" className="w-48 h-48" />
-                        </div> */}
                       </div>
                     )}
                   </div>
@@ -167,11 +162,11 @@ const MyTicketsPage = () => {
       {isQrModalOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-          onClick={closeQrModal} // Đóng modal khi click ra ngoài
+          onClick={closeQrModal}
         >
           <div
             className="bg-white p-6 rounded-lg shadow-xl relative"
-            onClick={(e) => e.stopPropagation()} // Ngăn chặn sự kiện click lan truyền ra ngoài modal
+            onClick={(e) => e.stopPropagation()} 
           >
             <button
               onClick={closeQrModal}

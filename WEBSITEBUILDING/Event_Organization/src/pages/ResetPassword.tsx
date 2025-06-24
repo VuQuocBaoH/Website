@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
-const API_BASE_URL = 'http://localhost:5000/api'; // Đảm bảo đúng URL backend của bạn
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const ResetPassword = () => {
   const [password, setPassword] = useState('');

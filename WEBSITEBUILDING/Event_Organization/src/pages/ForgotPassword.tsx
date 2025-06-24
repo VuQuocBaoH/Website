@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
-const API_BASE_URL = 'http://localhost:5000/api'; // Đảm bảo đúng URL backend của bạn
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -21,7 +21,6 @@ const ForgotPassword = () => {
     try {
       // Gửi yêu cầu đặt lại mật khẩu đến backend
       const response = await axios.post(`${API_BASE_URL}/auth/forgot-password`, { email });
-      console.log(response)
       toast.success(response.data.msg || 'Yêu cầu đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra email của bạn.');
       navigate('/signin'); // Có thể chuyển hướng về trang đăng nhập
     } catch (error: any) {

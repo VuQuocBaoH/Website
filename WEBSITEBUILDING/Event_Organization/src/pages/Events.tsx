@@ -24,7 +24,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 // Import danh mục sự kiện từ file constants
 import { eventCategories } from "@/lib/eventCategories";
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 // Định nghĩa cấu trúc cho category (giữ nguyên)
 interface CategoryOption {
@@ -349,7 +349,7 @@ const Events = () => {
               <h2 className="text-xl font-semibold">
                 {loading ? 'Đang tải...' : `${filteredEvents.length} ${filteredEvents.length === 1 ? 'Sự kiện' : 'Sự kiện'} được tìm thấy`}
               </h2>
-              <Select defaultValue="recommended">
+              {/* <Select defaultValue="recommended">
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Sắp xếp theo" />
                 </SelectTrigger>
@@ -358,7 +358,7 @@ const Events = () => {
                   <SelectItem value="date-asc">Ngày: Sớm nhất</SelectItem>
                   <SelectItem value="date-desc">Ngày: Muộn nhất</SelectItem>
                 </SelectContent>
-              </Select>
+              </Select> */}
             </div>
 
             {error && <div className="text-red-500 text-center">{error}</div>}

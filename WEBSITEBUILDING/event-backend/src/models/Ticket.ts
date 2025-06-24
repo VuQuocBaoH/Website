@@ -10,7 +10,7 @@ export interface ITicket extends Document {
   purchaseDate: Date;
   isPaid: boolean; // True nếu sự kiện có phí và đã thanh toán
   isFreeTicket: boolean; // True nếu là vé miễn phí
-  checkInStatus: 'pending' | 'checkedIn' | 'noShow';
+  checkInStatus: 'pending' | 'checkedIn' | 'noShow' | 'expired';
   checkInTime?: Date;
   // Bạn có thể thêm các trường khác như:
   // ticketType?: 'standard' | 'VIP' | 'earlyBird';
@@ -26,7 +26,7 @@ const TicketSchema: Schema = new Schema({
   purchaseDate: { type: Date, default: Date.now },
   isPaid: { type: Boolean, default: false },
   isFreeTicket: { type: Boolean, default: true }, // Default to true, updated based on event
-  checkInStatus: { type: String, enum: ['pending', 'checkedIn', 'noShow'], default: 'pending' },
+  checkInStatus: { type: String, enum: ['pending', 'checkedIn', 'noShow', 'expired'], default: 'pending' },
   checkInTime: { type: Date },
 });
 

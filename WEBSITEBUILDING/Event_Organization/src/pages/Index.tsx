@@ -9,7 +9,7 @@ import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import axios from 'axios'; // Import axios
 
-const API_BASE_URL = 'http://localhost:5000/api'; // <-- Định nghĩa URL backend
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const Index = () => {
   const [featuredEvents, setFeaturedEvents] = useState<EventCardProps[]>([]);
@@ -120,7 +120,7 @@ const Index = () => {
                 <Link to="/create">Tạo sự kiện</Link>
               </Button>
               <Button variant="outline" className="text-lg" size="lg">
-                Xem thêm
+                 <Link to="/events">Xem thêm</Link>
               </Button>
             </div>
           </div>

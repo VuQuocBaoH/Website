@@ -22,7 +22,7 @@ import Footer from "@/components/layout/Footer";
 // Import danh mục sự kiện từ file constants
 import { eventCategories } from "@/lib/eventCategories"; // Đảm bảo đường dẫn đúng
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const scheduleItemSchema = z.object({
   time: z.string().min(1, "Thời gian là bắt buộc"),

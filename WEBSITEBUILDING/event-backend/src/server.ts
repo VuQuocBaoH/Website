@@ -1,3 +1,4 @@
+// src/server.ts
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -6,7 +7,9 @@ import authRoutes from './routes/authRoutes';
 import eventRoutes from './routes/eventRoutes';
 import userRoutes from './routes/userRoutes';
 import discountRoutes from './routes/discountRoutes';
-
+import startCronJobs from './utils/cronJobs'; 
+import fs from 'fs';
+import https from 'https'; 
 
 // Load env vars
 dotenv.config();
@@ -25,14 +28,20 @@ app.get('/', (req, res) => {
   res.send('API is running...');
 });
 
-// TODO: Add your API routes here (Event and Auth routes)
 // Define API routes
 app.use('/api/auth', authRoutes);
-app.use('/api/events', eventRoutes); 
+app.use('/api/events', eventRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/discounts', discountRoutes);
 
+const PORT: number = parseInt(process.env.PORT || '5000', 10);
 
-const PORT = process.env.PORT || 5000;
+const options = {
+  key: fs.readFileSync('../Event_Organization/localhost+1-key.pem'), 
+  cert: fs.readFileSync('../Event_Organization/localhost+1.pem'),    
+};
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+https.createServer(options, app).listen(PORT, '0.0.0.0', () => {
+  console.log(`HTTPS Server running on https://0.0.0.0:${PORT}`);
+  startCronJobs();
+});

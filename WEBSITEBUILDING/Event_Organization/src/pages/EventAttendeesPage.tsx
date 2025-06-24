@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, CheckCircle, XCircle, Search, ScanLine, AlertCircle } from 'lucide-react';
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats, Html5QrcodeResult } from "html5-qrcode";
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 interface AttendeeTicket {
   id: string;

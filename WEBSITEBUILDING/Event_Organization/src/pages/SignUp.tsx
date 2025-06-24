@@ -8,7 +8,7 @@ import Navbar from "@/components/layout/Navbar";
 import axios from 'axios';
 import { toast } from "sonner";
 
- const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
     const SignUp = () => {
       const [showPassword, setShowPassword] = useState(false);

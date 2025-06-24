@@ -22,7 +22,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { isPast, parseISO } from 'date-fns'; // Import isPast và parseISO từ date-fns
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 // Định nghĩa kiểu cho một mục trong lịch trình
 interface ScheduleItem {
