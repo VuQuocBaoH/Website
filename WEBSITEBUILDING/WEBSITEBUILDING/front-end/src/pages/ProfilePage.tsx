@@ -1,4 +1,3 @@
-// D:\code\DACNTT2\WEBSITEBUILDING\Event_Organization\src\pages\ProfilePage.tsx
 import React, { useEffect, useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -490,8 +489,149 @@ const ProfilePage = () => {
                                     <Button type="submit">Đổi mật khẩu</Button>
                                 </form>
                             </Form>
+                            
                         </CardContent>
                     </Card>
+
+                    {/* Speaker Request Form */}
+                    {isMyProfile && (!isSpeakerApproved && !isSpeakerPending) && (
+                        <Card className="lg:col-span-2"> {/* Thêm Card để bọc form đăng ký diễn giả */}
+                            <CardHeader>
+                                <CardTitle>Đăng ký làm diễn giả</CardTitle>
+                                <CardDescription>Gửi yêu cầu để trở thành diễn giả và chia sẻ kiến thức của bạn.</CardDescription>
+                                {isSpeakerRejected && (
+                                    <p className="text-red-500 text-sm mt-2 flex items-center">
+                                        <XCircle className="h-4 w-4 mr-1" /> Yêu cầu diễn giả của bạn đã bị từ chối. Bạn có thể gửi lại yêu cầu mới.
+                                    </p>
+                                )}
+                            </CardHeader>
+                            <CardContent>
+                                <Form {...speakerForm}>
+                                    <form onSubmit={speakerForm.handleSubmit(onSpeakerRequestSubmit)} className="space-y-6">
+                                        <FormField
+                                            control={speakerForm.control}
+                                            name="speakerBio"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Tiểu sử của bạn (tối thiểu 50 ký tự, tối đa 500 ký tự)</FormLabel>
+                                                    <FormControl>
+                                                        <Textarea
+                                                            placeholder="Mô tả kinh nghiệm, chuyên môn và những gì bạn muốn chia sẻ..."
+                                                            className="min-h-[120px]"
+                                                            {...field}
+                                                            disabled={isSpeakerRequestSubmitting}
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <FormField
+                                            control={speakerForm.control}
+                                            name="speakerTopics"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Chủ đề chuyên môn (ví dụ: Marketing, Lập trình, Nghệ thuật)</FormLabel>
+                                                    <div className="flex space-x-2 mb-2">
+                                                        <Input
+                                                            placeholder="Thêm chủ đề..."
+                                                            value={newTopic}
+                                                            onChange={(e) => setNewTopic(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    e.preventDefault();
+                                                                    handleAddTopic();
+                                                                }
+                                                            }}
+                                                            disabled={isSpeakerRequestSubmitting}
+                                                        />
+                                                        <Button type="button" onClick={handleAddTopic} disabled={isSpeakerRequestSubmitting}>
+                                                            <Plus className="h-4 w-4 mr-2" /> Thêm
+                                                        </Button>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        {field.value.map((topic, index) => (
+                                                            <Badge key={index} variant="secondary" className="pr-1 flex items-center gap-1">
+                                                                {topic}
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-5 w-5 hover:bg-red-100"
+                                                                    onClick={() => handleRemoveTopic(topic)}
+                                                                    disabled={isSpeakerRequestSubmitting}
+                                                                >
+                                                                    <X className="h-3 w-3" />
+                                                                </Button>
+                                                            </Badge>
+                                                        ))}
+                                                    </div>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <FormField
+                                            control={speakerForm.control}
+                                            name="speakerImage"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>URL Hình ảnh đại diện (tùy chọn)</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            placeholder="https://your-image-url.com/profile.jpg"
+                                                            {...field}
+                                                            disabled={isSpeakerRequestSubmitting}
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <div className="flex justify-end">
+                                            <Button type="submit" disabled={isSpeakerRequestSubmitting}>
+                                                {isSpeakerRequestSubmitting ? "Đang gửi..." : "Gửi yêu cầu làm diễn giả"}
+                                            </Button>
+                                        </div>
+                                    </form>
+                                </Form>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {isMyProfile && isSpeakerPending && (
+                        <Card className="lg:col-span-2">
+                            <CardHeader>
+                                <CardTitle>Yêu cầu làm diễn giả của bạn</CardTitle>
+                                <CardDescription>Trạng thái yêu cầu làm diễn giả của bạn.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex items-center space-x-2 text-yellow-600">
+                                    <Mail className="h-5 w-5" />
+                                    <p className="font-semibold">Yêu cầu của bạn đang chờ xử lý.</p>
+                                </div>
+                                <p className="text-sm text-gray-500 mt-2">
+                                    Chúng tôi đang xem xét yêu cầu của bạn. Bạn sẽ nhận được thông báo khi có cập nhật về trạng thái.
+                                </p>
+                                {userProfile.speakerRequestDate && (
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        Ngày gửi: {new Date(userProfile.speakerRequestDate).toLocaleDateString('vi-VN')}
+                                    </p>
+                                )}
+                                <div className="mt-4 p-4 border rounded-md bg-gray-50">
+                                    <h4 className="font-medium text-gray-700 mb-2">Thông tin bạn đã gửi:</h4>
+                                    <p className="text-sm mb-1"><strong>Tiểu sử:</strong> {userProfile.speakerBio}</p>
+                                    <p className="text-sm mb-1"><strong>Chủ đề:</strong> {userProfile.speakerTopics?.join(', ')}</p>
+                                    {userProfile.speakerImage && (
+                                        <p className="text-sm"><strong>Hình ảnh:</strong> <a href={userProfile.speakerImage} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{userProfile.speakerImage}</a></p>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
                 </TabsContent>
 
                 {/* Tab Content: Sự kiện của tôi */}

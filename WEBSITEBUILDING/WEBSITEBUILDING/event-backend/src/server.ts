@@ -37,8 +37,8 @@ app.use('/api/discounts', discountRoutes);
 const PORT: number = parseInt(process.env.PORT || '5000', 10);
 
 const options = {
-  key: fs.readFileSync('../Event_Organization/localhost+1-key.pem'), 
-  cert: fs.readFileSync('../Event_Organization/localhost+1.pem'),    
+  key: fs.readFileSync('../front-end/localhost+1-key.pem'), 
+  cert: fs.readFileSync('../front-end/localhost+1.pem'),    
 };
 
 https.createServer(options, app).listen(PORT, '0.0.0.0', () => {

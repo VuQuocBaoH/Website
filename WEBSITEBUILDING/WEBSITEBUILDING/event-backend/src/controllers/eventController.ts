@@ -375,8 +375,7 @@ export const getFeaturedEvents: RequestHandler = async (req, res): Promise<void>
   try {
     const featuredEvents = await Event.find({ isFeatured: true, date: { $gte: new Date() } })
       .populate('tickets')
-      .sort({ date: 1 })
-      .limit(4);
+      .sort({ date: 1 }); // Removed .limit(4)
     res.json(featuredEvents);
   } catch (err: any) {
     console.error(err.message);
@@ -395,7 +394,7 @@ export const getUpcomingEvents: RequestHandler = async (req, res): Promise<void>
       date: { $gte: today } 
     })
     .sort({ date: 1 }) 
-    .limit(4) 
+    // Removed .limit(4)
     .populate('organizer', 'name'); 
 
     res.json(upcomingEvents);
@@ -1002,6 +1001,7 @@ export const inviteSpeaker: RequestHandler = async (req, res): Promise<void> => 
 export const getEventInvitations: RequestHandler = async (req, res): Promise<void> => {
     try {
         const userId = req.user?.id; // ID của người tổ chức đang đăng nhập
+        const userRole = req.user?.role;
         const { eventId } = req.params;
 
         if (!userId) {
@@ -1016,7 +1016,7 @@ export const getEventInvitations: RequestHandler = async (req, res): Promise<voi
         }
 
         // Kiểm tra xem người gọi API có phải là người tổ chức của sự kiện không
-        if (event.organizerId.toString() !== userId) {
+        if (event.organizerId.toString() !== userId && userRole !== 'admin') {
             res.status(403).json({ msg: 'Bạn không có quyền xem lời mời cho sự kiện này.' });
             return;
         }
