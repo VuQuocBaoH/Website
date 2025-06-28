@@ -210,3 +210,33 @@ export const deleteDiscountCode: RequestHandler = async (req, res): Promise<void
     res.status(500).send('Server Error');
   }
 };
+
+// @route   PUT /api/discounts/use/:code
+// @desc    Increment the timesUsed count for a discount code
+// @access  Private (Accessed when a discount code is successfully applied/used in a transaction)
+export const useDiscountCode: RequestHandler = async (req, res): Promise<void> => {
+  const { code } = req.params;
+
+  try {
+    const discountCode = await DiscountCode.findOne({ code: code.toUpperCase() });
+
+    if (!discountCode) {
+      res.status(404).json({ msg: 'Discount code not found' });
+      return;
+    }
+
+    // Tăng số lượt sử dụng
+    discountCode.timesUsed += 1;
+
+    // Kiểm tra nếu đạt đến giới hạn sử dụng sau khi tăng
+    if (discountCode.usageLimit && discountCode.timesUsed >= discountCode.usageLimit) {
+      discountCode.isActive = false; // Tự động vô hiệu hóa nếu đạt giới hạn
+    }
+
+    await discountCode.save();
+    res.json({ msg: 'Discount code usage updated successfully', timesUsed: discountCode.timesUsed });
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};

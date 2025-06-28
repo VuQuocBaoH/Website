@@ -212,8 +212,14 @@ const EventPage = () => {
           { headers: { 'x-auth-token': token } }
         );
       }
-
       toast.success(response.data.msg);
+
+      if (discountCode) { 
+        await axios.put(`${API_BASE_URL}/discounts/use/${discountCode}`, {}, {
+            headers: { 'x-auth-token': token }
+        });
+        toast.success(`Mã giảm giá ${discountCode} đã được áp dụng và mua vé thành công.`);
+      }
 
       setRefreshKey(prevKey => prevKey + 1); // Kích hoạt fetch lại để cập nhật trạng thái đăng ký và số lượng người tham dự
 

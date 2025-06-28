@@ -7,7 +7,8 @@ import {
   getDiscountCodeByCode,
   updateDiscountCode,
   deleteDiscountCode,
-  validateDiscountCode
+  validateDiscountCode,
+  useDiscountCode
 } from '../controllers/discountController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
@@ -21,6 +22,7 @@ router.post('/', authMiddleware, createDiscountCode); // Tạo mã
 router.get('/', authMiddleware, getAllDiscountCodes); // Lấy tất cả mã
 router.put('/:id', authMiddleware, updateDiscountCode); // Cập nhật mã
 router.delete('/:id', authMiddleware, deleteDiscountCode); // Xóa mã
+router.put('/use/:code', authMiddleware, useDiscountCode);
 
 
 router.get('/:code', authMiddleware, getDiscountCodeByCode); 

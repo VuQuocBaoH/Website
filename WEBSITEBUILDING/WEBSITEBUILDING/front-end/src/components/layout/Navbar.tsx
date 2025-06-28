@@ -191,12 +191,13 @@ const Navbar = () => {
             {isLoggedIn ? (
               <> {/* This Fragment is correctly placed */}
                 {/* Vé của tôi Button */}
+                {!isAdminUser && (
                 <Button variant="ghost" size="sm" asChild>
-                  {/* Sửa lỗi: đảm bảo Link chỉ có MỘT child */}
                   <Link to="/my-tickets" className="flex items-center">
                     <Ticket className="h-5 w-5 text-gray-600 mr-2" /> Vé của tôi
                   </Link>
                 </Button>
+                )}
 
                 <div className="relative" ref={notificationRef}>
                   <Button variant="ghost" size="sm" onClick={toggleNotificationsDropdown} className="relative">
@@ -281,12 +282,13 @@ const Navbar = () => {
               {isLoggedIn && (
                 <> {/* This Fragment is correctly placed */}
                   {/* Vé của tôi Button (Mobile) */}
+                  {!isAdminUser && (
                   <Button variant="ghost" size="sm" asChild className="w-full justify-start px-2">
-                    {/* Sửa lỗi: đảm bảo Link chỉ có MỘT child */}
                     <Link to="/my-tickets" onClick={toggleMenu} className="flex items-center">
                       <Ticket className="h-5 w-5 text-gray-600 mr-2" /> Vé của tôi
                     </Link>
                   </Button>
+                  )}
 
                   <div className="relative">
                     <Button variant="ghost" size="sm" onClick={toggleNotificationsDropdown} className="relative w-full justify-start px-2">
