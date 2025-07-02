@@ -20,8 +20,7 @@ import { cn } from "@/lib/utils";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
-// Import danh mục sự kiện từ file constants
-import { eventCategories } from "@/lib/eventCategories"; // Đảm bảo đường dẫn đúng
+import { eventCategories } from "@/lib/eventCategories"; 
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -34,15 +33,15 @@ const scheduleItemSchema = z.object({
 const eventSchema = z.object({
   title: z.string().min(5, "Tiêu đề phải có ít nhất 5 ký tự."),
   date: z.date({ required_error: "Ngày diễn ra sự kiện là bắt buộc." }),
-  time: z.string().min(1, "Thời gian diễn ra sự kiện là bắt buộc."),
-  // location: z.string().min(3, "Địa điểm phải có ít nhất 3 ký tự."),
+  startTime: z.string().min(1, "Giờ bắt đầu là bắt buộc."), 
+  endTime: z.string().min(1, "Giờ kết thúc là bắt buộc."),
   category: z.string().min(1, "Vui lòng chọn một danh mục."),
+  roomNumber: z.coerce.number({required_error: "Vui lòng chọn phòng."}).min(1, "Vui lòng chọn phòng."), 
   isFree: z.boolean().default(true),
   price: z.object({
       amount: z.coerce.number().min(0, "Giá vé không thể âm."),
       currency: z.enum(['vnd', 'usd']),
   }).optional(),
-  capacity: z.string().optional(),
   description: z.string().min(20, "Mô tả phải có ít nhất 20 ký tự."),
   image: z.string().url("Vui lòng nhập một URL hình ảnh hợp lệ.").optional().or(z.literal('')),
   schedule: z.array(scheduleItemSchema).optional(),
@@ -54,6 +53,9 @@ const eventSchema = z.object({
 }, {
     message: "Giá vé phải lớn hơn 0 cho sự kiện trả phí.",
     path: ["price.amount"],
+}).refine(data => data.endTime > data.startTime, {
+    message: "Giờ kết thúc phải sau giờ bắt đầu.",
+    path: ["endTime"],
 });
 
 const CreateEvent = () => {
@@ -75,10 +77,10 @@ const CreateEvent = () => {
     resolver: zodResolver(eventSchema),
     defaultValues: {
       title: "",
-      // location: "",
+      startTime: "",
+      endTime: "",
       isFree: true,
       price: { amount: 0, currency: 'vnd' },
-      capacity: "",
       description: "",
       image: "",
       category: "",
@@ -174,34 +176,35 @@ const CreateEvent = () => {
                       </FormItem>
                     )}
                   />
-                   <FormField
-                    control={form.control}
-                    name="time"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Thời gian</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Ví dụ: 7:00 PM - 9:00 PM" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="startTime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Giờ bắt đầu</FormLabel>
+                          <FormControl>
+                            <Input type="time" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="endTime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Giờ kết thúc</FormLabel>
+                          <FormControl>
+                            <Input type="time" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-
-                  {/* <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Địa điểm</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ví dụ: Quận 1, TP.HCM" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                  /> */}
+                </div>
 
                 <FormField
                   control={form.control}
@@ -214,7 +217,6 @@ const CreateEvent = () => {
                             <SelectTrigger><SelectValue placeholder="Chọn danh mục cho sự kiện" /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {/* Render các SelectItem từ eventCategories */}
                           {eventCategories.map((category) => (
                             <SelectItem key={category.value} value={category.value}>
                               {category.name}
@@ -281,13 +283,24 @@ const CreateEvent = () => {
 
                 <FormField
                     control={form.control}
-                    name="capacity"
+                    name="roomNumber"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Sức chứa (tùy chọn)</FormLabel>
-                            <FormControl>
-                                <Input type="number" placeholder="100" {...field} />
-                            </FormControl>
+                            <FormLabel>Chọn phòng</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value?.toString()}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Chọn phòng và sức chứa tương ứng" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                                        <SelectItem key={num} value={num.toString()}>
+                                            Phòng {num} (Sức chứa: {num * 100} người)
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             <FormMessage />
                         </FormItem>
                     )}

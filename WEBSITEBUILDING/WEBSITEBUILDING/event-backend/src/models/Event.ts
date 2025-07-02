@@ -1,4 +1,3 @@
-// src/models/Event.ts
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IOrganizer {
@@ -18,10 +17,13 @@ export interface IPrice {
   currency: 'vnd' | 'usd';
 }
 
+
 export interface IEvent extends Document {
   title: string;
   date: Date;
-  time: string;
+  // time: string;
+  startTime: string;
+  endTime: string;
   location: string;
   address?: string;
   image: string;
@@ -32,9 +34,9 @@ export interface IEvent extends Document {
   organizerId: mongoose.Types.ObjectId;
   description: string;
   longDescription?: string;
-  capacity?: number;
-  // registeredAttendees: mongoose.Types.ObjectId[]; 
-  tickets: mongoose.Types.ObjectId[]; 
+  capacity: number;
+  roomNumber: number;
+  tickets: mongoose.Types.ObjectId[];
   status: 'active' | 'cancelled' | 'completed';
   schedule?: IScheduleItem[];
 }
@@ -54,13 +56,16 @@ const priceSchema = new mongoose.Schema({
 const eventSchema = new mongoose.Schema({
   title: { type: String, required: true },
   date: { type: Date, required: true },
-  time: { type: String, required: true },
+  // time: { type: String, required: true },
+  startTime: { type: String, required: true }, 
+  endTime: { type: String, required: true },
   location: { type: String, required: true },
   category: { type: String, required: true },
   image: { type: String },
   description: { type: String, required: true },
   longDescription: { type: String },
-  capacity: { type: Number },
+  capacity: { type: Number, required: true }, 
+  roomNumber: { type: Number, required: true, min: 1, max: 10 }, 
   isFree: { type: Boolean, default: true },
   price: {
     type: priceSchema,
@@ -80,8 +85,7 @@ const eventSchema = new mongoose.Schema({
       description: String,
     },
   ],
-  // tickets: [{ type: mongoose.Schema.Types.ObjectId, ref: "Ticket" }], // 
-  tickets: [{ type: mongoose.Schema.Types.ObjectId, ref: "Ticket" }], //
+  tickets: [{ type: mongoose.Schema.Types.ObjectId, ref: "Ticket" }],
   isFeatured: { type: Boolean, default: false },
   isUpcoming: { type: Boolean, default: false },
   status: { type: String, default: "active" },

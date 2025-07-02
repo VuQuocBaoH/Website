@@ -22,6 +22,20 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+const addHour = (time: string): string => {
+  const [hours, minutes] = time.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours + 1, minutes);
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+};
+
+const subtractHour = (time: string): string => {
+  const [hours, minutes] = time.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours - 1, minutes);
+  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+};
+
 // Hàm tạo QR code
 const generateQRCodeDataURL = async (data: string): Promise<string> => {
   try {
@@ -44,9 +58,38 @@ export const createEvent = async (req: Request, res: Response): Promise<void> =>
     }
 
     const {
-      title, date, time, location, address, image, price, isFree, category,
-      description, longDescription, capacity, organizerName, schedule
+      title, date, startTime, endTime, location, address, image, price, isFree, category,
+      description, longDescription, organizerName, schedule,
+      roomNumber 
     } = req.body;
+
+    const eventDate = new Date(date);
+    const startOfDay = new Date(new Date(eventDate).setHours(0, 0, 0, 0));
+    const endOfDay = new Date(new Date(eventDate).setHours(23, 59, 59, 999));
+
+    const bufferedStartTime = subtractHour(startTime);
+    const bufferedEndTime = addHour(endTime);
+
+    const conflictingEvent = await Event.findOne({
+      roomNumber: roomNumber,
+      date: { $gte: startOfDay, $lte: endOfDay },
+      startTime: { $lt: bufferedEndTime },
+      endTime: { $gt: bufferedStartTime }
+    });
+
+    if (conflictingEvent) {
+      res.status(409).json({ 
+        msg: `Phòng ${roomNumber} đã được đặt trong khoảng thời gian từ ${conflictingEvent.startTime} đến ${conflictingEvent.endTime} vào ngày này. Vui lòng chọn thời gian sau hơn 1 tiếng kể từ khi sự kiện trước kết thúc.`
+      });
+      return;
+    }
+
+
+    if (!roomNumber || typeof roomNumber !== 'number' || roomNumber < 1 || roomNumber > 10) {
+        res.status(400).json({ msg: 'Số phòng không hợp lệ. Vui lòng chọn từ 1 đến 10.' });
+        return;
+    }
+    const calculatedCapacity = roomNumber * 100;
 
     if (isFree) {
       req.body.isFree = true;
@@ -77,7 +120,8 @@ export const createEvent = async (req: Request, res: Response): Promise<void> =>
     const newEvent = new Event({
       title,
       date: new Date(date),
-      time,
+      startTime, 
+      endTime,
       location,
       address,
       image,
@@ -88,7 +132,8 @@ export const createEvent = async (req: Request, res: Response): Promise<void> =>
       organizerId: new mongoose.Types.ObjectId(userId),
       description,
       longDescription: longDescription || description,
-      capacity: capacity ? parseInt(capacity) : undefined,
+      capacity: calculatedCapacity, 
+      roomNumber: roomNumber,      
       status: 'active',
       schedule: schedule || [],
       tickets: [],
@@ -122,25 +167,61 @@ export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
     }
 
     const {
-      title, date, time, location, address, image, price, isFree, category,
-      description, longDescription, capacity, status, schedule,
+      title, date, startTime, endTime, location, address, image, price, isFree, category,
+      description, longDescription, status, schedule,
       isFeatured,
-      isUpcoming
+      isUpcoming,
+      roomNumber 
     } = req.body;
+
+    if (date || startTime || endTime || roomNumber) {
+        const checkDate = date ? new Date(date) : event.date;
+        const checkStartTime = startTime !== undefined ? startTime : event.startTime;
+        const checkEndTime = endTime !== undefined ? endTime : event.endTime;
+        const checkRoomNumber = roomNumber !== undefined ? roomNumber : event.roomNumber;
+
+        const startOfDay = new Date(new Date(checkDate).setHours(0, 0, 0, 0));
+        const endOfDay = new Date(new Date(checkDate).setHours(23, 59, 59, 999));
+
+        const bufferedStartTime = subtractHour(checkStartTime);
+        const bufferedEndTime = addHour(checkEndTime);
+
+        const conflictingEvent = await Event.findOne({
+            _id: { $ne: req.params.id }, 
+            roomNumber: checkRoomNumber,
+            date: { $gte: startOfDay, $lte: endOfDay },
+            startTime: { $lt: bufferedEndTime },
+            endTime: { $gt: bufferedStartTime }
+        });
+
+        if (conflictingEvent) {
+            res.status(409).json({ 
+                msg: `Phòng ${checkRoomNumber} đã được đặt trong khoảng thời gian từ ${conflictingEvent.startTime} đến ${conflictingEvent.endTime} vào ngày này. Vui lòng chọn thời gian sau hơn 1 tiếng kể từ khi sự kiện trước kết thúc.`
+            });
+            return;
+        }
+    }
 
     if (title !== undefined) event.title = title;
     if (date !== undefined) event.date = new Date(date);
-    if (time !== undefined) event.time = time;
+    if (startTime !== undefined) event.startTime = startTime; 
+    if (endTime !== undefined) event.endTime = endTime;
     if (location !== undefined) event.location = location;
     if (address !== undefined) event.address = address;
     if (image !== undefined) event.image = image;
     if (category !== undefined) event.category = category;
     if (description !== undefined) event.description = description;
     if (longDescription !== undefined) event.longDescription = longDescription;
-    if (capacity !== undefined) event.capacity = parseInt(capacity, 10);
+    if (roomNumber !== undefined) {
+        const newRoomNumber = Number(roomNumber);
+        if (newRoomNumber >= 1 && newRoomNumber <= 10) {
+            event.roomNumber = newRoomNumber;
+            event.capacity = newRoomNumber * 100; 
+        }
+    }
     if (status !== undefined) event.status = status;
     if (schedule !== undefined) event.schedule = schedule;
-
+    
     if (typeof isFree === 'boolean') {
       event.isFree = isFree;
     }
@@ -152,7 +233,6 @@ export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
       event.isUpcoming = isUpcoming;
     }
 
-    // Logic xử lý giá
     if (event.isFree === false && price) {
       if (
         typeof price.amount !== 'number' ||
@@ -244,7 +324,7 @@ export const registerForEvent: RequestHandler = async (req, res): Promise<void> 
         <p>Xin chào ${user.username},</p>
         <p>Bạn đã đăng ký thành công sự kiện <strong>${event.title}</strong>.</p>
         <p><strong>Ngày:</strong> ${event.date.toLocaleDateString('vi-VN')}</p>
-        <p><strong>Thời gian:</strong> ${event.time}</p>
+        <p><strong>Thời gian:</strong> từ ${event.startTime} đến ${event.endTime}</p>
         <p><strong>Địa điểm:</strong> ${event.location}, ${event.address || ''}</p>
         <p>Mã vé của bạn: <strong>${ticketCode}</strong></p>
         <p>Vui lòng mang theo QR code này khi đến sự kiện để check-in:</p>
@@ -604,7 +684,7 @@ export const purchaseTicket: RequestHandler = async (req, res): Promise<void> =>
         <p>Xin chào ${user.username},</p>
         <p>Cảm ơn bạn đã mua vé cho sự kiện <strong>${event.title}</strong>.</p>
         <p><strong>Ngày:</strong> ${event.date.toLocaleDateString('vi-VN')}</p>
-        <p><strong>Thời gian:</strong> ${event.time}</p>
+        <p><strong>Thời gian:</strong> từ ${event.startTime} đến ${event.endTime}</p>
         <p><strong>Địa điểm:</strong> ${event.location}, ${event.address || ''}</p>
         <p><strong>Giá vé:</strong> ${event.price.amount.toLocaleString('vi-VN')} ${event.price.currency.toUpperCase()}</p>
         <p>Mã vé của bạn: <strong>${ticketCode}</strong></p>
@@ -665,7 +745,9 @@ export const getMyTickets: RequestHandler = async (req, res): Promise<void> => {
           id: event._id,
           title: event.title,
           date: event.date.toISOString(),
-          time: event.time,
+          // time: event.time,
+          startTime: event.startTime,
+          endTime: event.endTime,
           location: event.location,
           address: event.address,
           image: event.image,

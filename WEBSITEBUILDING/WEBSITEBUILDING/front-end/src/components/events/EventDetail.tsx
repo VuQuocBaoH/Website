@@ -20,7 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { isPast, parseISO } from 'date-fns'; // Import isPast và parseISO từ date-fns
+import { isPast, parseISO } from 'date-fns'; 
+import { formatTime12Hour } from '@/lib/utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -37,7 +38,9 @@ export interface EventDetailProps {
   description: string;
   longDescription: string;
   date: string;
-  time: string;
+  // time: string;
+  startTime: string;
+  endTime: string;
   location: string;
   address: string;
   image: string;
@@ -71,8 +74,10 @@ const EventDetail = ({
   title,
   description,
   longDescription,
-  date, // date là chuỗi ISO (từ backend), EventDetail sẽ tự định dạng và parse
-  time,
+  date,
+  // time,
+  startTime,
+  endTime,
   location,
   address,
   image,
@@ -216,12 +221,11 @@ const EventDetail = ({
             <div className="flex flex-wrap items-center text-gray-700 mb-6 gap-x-6 gap-y-2">
               <div className="flex items-center">
                 <Calendar className="h-5 w-5 mr-2 text-event-purple" />
-                {/* Format ngày để hiển thị thân thiện với người dùng */}
                 <span>{new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</span> 
               </div>
               <div className="flex items-center">
                 <Clock className="h-5 w-5 mr-2 text-event-purple" />
-                <span>{time}</span>
+                <span>Từ {formatTime12Hour(startTime)} đến {formatTime12Hour(endTime)}</span>
               </div>
             </div>
             <div className="flex items-center text-gray-700 mb-6">
@@ -479,9 +483,8 @@ const EventDetail = ({
                 <Calendar className="h-5 w-5 text-gray-500 mt-0.5" />
                 <div>
                   <p className="font-medium">Thời gian</p>
-                  {/* Format ngày để hiển thị thân thiện với người dùng */}
                   <p className="text-sm text-gray-600">{new Date(date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}</p> 
-                  <p className="text-sm text-gray-600">{time}</p>
+                    <p className="text-sm text-gray-600">Từ {formatTime12Hour(startTime)} đến {formatTime12Hour(endTime)}</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">

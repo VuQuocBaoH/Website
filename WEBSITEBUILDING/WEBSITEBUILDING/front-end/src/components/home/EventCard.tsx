@@ -1,12 +1,15 @@
 import { Link } from 'react-router-dom';
 import { Calendar, MapPin, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { formatTime12Hour } from '@/lib/utils';
 
 export interface EventCardProps {
   id: string;
   title: string;
   date: string;
-  time: string;
+  // time: string;
+  startTime: string;
+  endTime: string;
   location: string;
   image: string;
   price?: string | { amount: number; currency: string };
@@ -18,7 +21,9 @@ const EventCard = ({
   id,
   title,
   date,
-  time,
+  // time,
+  startTime,
+  endTime,
   location,
   image,
   price = 'Free',
@@ -64,7 +69,7 @@ const EventCard = ({
 
             <div className="flex items-center">
               <Clock className="h-4 w-4 mr-2 text-event-orange" />
-              <span>{time}</span>
+               <span>Từ {formatTime12Hour(startTime)} đến {formatTime12Hour(endTime)}</span>
             </div>
 
             <div className="flex items-center">

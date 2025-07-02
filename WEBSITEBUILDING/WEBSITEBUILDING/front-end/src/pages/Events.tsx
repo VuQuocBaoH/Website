@@ -21,22 +21,19 @@ import { Badge } from '@/components/ui/badge';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-// Import danh mục sự kiện từ file constants
 import { eventCategories } from "@/lib/eventCategories";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-// Định nghĩa cấu trúc cho category (giữ nguyên)
 interface CategoryOption {
-  name: string; // Tên hiển thị (tiếng Việt)
-  value: string; // Giá trị gửi lên backend (chuẩn hóa, tiếng Anh)
+  name: string; 
+  value: string; 
 }
 
 const Events = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // State cục bộ cho UI, sẽ được đồng bộ từ URL
   const [localSearchTerm, setLocalSearchTerm] = useState('');
   const [localSelectedCategory, setLocalSelectedCategory] = useState<string | null>(null);
   const [localSelectedDate, setLocalSelectedDate] = useState<string | null>(null);
@@ -51,14 +48,12 @@ const Events = () => {
     'Hôm nay', 'Ngày mai', 'Cuối tuần này', 'Tuần này', 'Tháng này', 'Tháng sau', 'Tất cả sắp tới'
   ];
 
-  // Hàm helper để tìm tên hiển thị từ giá trị
   const getCategoryNameByValue = (value: string | null): string | null => {
     if (!value) return null;
     const found = eventCategories.find(cat => cat.value === value);
     return found ? found.name : null;
   };
 
-  // Ánh xạ tên tiếng Việt của ngày thành giá trị tiếng Anh cho backend
   const mapDateOptionToBackendValue = (option: string | null): string | null => {
     if (!option) return null;
     switch (option) {
@@ -73,7 +68,6 @@ const Events = () => {
     }
   };
 
-  // Ánh xạ giá trị tiếng Anh từ backend thành tên tiếng Việt cho UI
   const mapBackendValueToDateOption = (value: string | null): string | null => {
     if (!value) return null;
     switch (value) {
@@ -108,10 +102,12 @@ const Events = () => {
           id: event._id,
           title: event.title,
           date: new Date(event.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }),
-          time: event.time,
+          // time: event.time, 
+          startTime: event.startTime,
+          endTime: event.endTime, 
           location: event.location,
           image: event.image,
-          price: event.isFree ? { amount: 0, currency: 'vnd' } : event.price, // Ensure price is always an object for EventCard
+          price: event.isFree ? { amount: 0, currency: 'vnd' } : event.price, 
           category: event.category,
           organizer: event.organizer.name
       })));
@@ -121,24 +117,21 @@ const Events = () => {
     } finally {
       setLoading(false);
     }
-  }, []); // Dependencies: empty array as it relies on its parameters
-
-  // Effect để đọc URL params, cập nhật state cục bộ và gọi API
+  }, []); 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
     const searchFromUrl = queryParams.get('search') || '';
-    const categoryFromUrl = queryParams.get('category') || null; // value chuẩn hóa
-    const dateFilterFromUrl = queryParams.get('dateFilter') || null; // value tiếng Anh từ backend
+    const categoryFromUrl = queryParams.get('category') || null; 
+    const dateFilterFromUrl = queryParams.get('dateFilter') || null; 
 
-    // Cập nhật state cục bộ từ URL
     setLocalSearchTerm(searchFromUrl);
     setLocalSelectedCategory(categoryFromUrl);
-    setLocalSelectedDate(mapBackendValueToDateOption(dateFilterFromUrl)); // Chuyển đổi sang tiếng Việt cho UI
+    setLocalSelectedDate(mapBackendValueToDateOption(dateFilterFromUrl)); 
 
     // Gọi fetchEvents với các giá trị từ URL để đảm bảo dữ liệu được tải đúng
     fetchEvents(searchFromUrl, categoryFromUrl, dateFilterFromUrl);
 
-  }, [location.search, fetchEvents]); // Chỉ phụ thuộc vào location.search và fetchEvents
+  }, [location.search, fetchEvents]); 
 
 
   // Hàm chung để cập nhật URL khi có thay đổi bộ lọc
@@ -173,20 +166,17 @@ const Events = () => {
   };
 
   const handleCategoryChange = (value: string) => {
-    const newCategory = value === localSelectedCategory ? null : value; // Toggle selection
+    const newCategory = value === localSelectedCategory ? null : value; 
     setLocalSelectedCategory(newCategory);
-    updateUrlParams(localSearchTerm, newCategory, localSelectedDate); // Update URL immediately
+    updateUrlParams(localSearchTerm, newCategory, localSelectedDate); 
   };
 
   const handleDateChange = (value: string) => {
-    const newDate = value === localSelectedDate ? null : value; // Toggle selection (optional, usually date selects are not toggled)
-    setLocalSelectedDate(newDate);
-    updateUrlParams(localSearchTerm, localSelectedCategory, newDate); // Update URL immediately
+    const newDate = value === localSelectedDate ? null : value;
+    updateUrlParams(localSearchTerm, localSelectedCategory, newDate); 
   };
 
   const handleApplyFilters = () => {
-    // Khi áp dụng, chúng ta đã có local state chính xác
-    // updateUrlParams sẽ đảm bảo URL được đồng bộ và fetchEvents sẽ chạy
     updateUrlParams(localSearchTerm, localSelectedCategory, localSelectedDate);
     setShowFilters(false);
   };
@@ -195,10 +185,9 @@ const Events = () => {
     setLocalSearchTerm('');
     setLocalSelectedCategory(null);
     setLocalSelectedDate(null);
-    updateUrlParams('', null, null); // Clear all params in URL
+    updateUrlParams('', null, null); 
   };
 
-  // filteredEvents now directly reflects `allEvents` which are already filtered by the API call
   const filteredEvents = allEvents;
 
   return (
@@ -219,7 +208,6 @@ const Events = () => {
                   className="pl-10 pr-4"
                   value={localSearchTerm}
                   onChange={handleSearchChange}
-                  // Optional: onBlur or onKeyPress for instant search without apply button
                   onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                           handleApplyFilters();
@@ -276,7 +264,7 @@ const Events = () => {
                             id={`category-${category.value}`}
                             name="category-filter"
                             checked={localSelectedCategory === category.value}
-                            onChange={() => handleCategoryChange(category.value)} // Sử dụng handleCategoryChange
+                            onChange={() => handleCategoryChange(category.value)} 
                             className="form-radio h-4 w-4 text-event-purple"
                           />
                           <label htmlFor={`category-${category.value}`} className="text-sm">

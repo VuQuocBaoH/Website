@@ -318,9 +318,9 @@ export const getSpeakerInvitations: RequestHandler = async (req, res): Promise<v
 // @access  Private (Speaker)
 export const respondToSpeakerInvitation: RequestHandler = async (req, res): Promise<void> => {
   try {
-    const userId = req.user?.id; // ID của diễn giả đang đăng nhập
+    const userId = req.user?.id; 
     const { invitationId } = req.params;
-    const { action } = req.body; // 'accept' or 'decline'
+    const { action } = req.body; 
 
     if (!userId) {
       res.status(401).json({ msg: 'Người dùng chưa được xác thực.' });
@@ -332,15 +332,14 @@ export const respondToSpeakerInvitation: RequestHandler = async (req, res): Prom
     }
 
     const invitation = await SpeakerInvitation.findById(invitationId)
-        .populate('eventId', 'title date time location address schedule') // Populate schedule
-        .populate('organizerId', 'username email'); // Populate organizer info
+      .populate('eventId', 'title date startTime endTime location address schedule') 
+      .populate('organizerId', 'username email');
 
     if (!invitation) {
       res.status(404).json({ msg: 'Không tìm thấy lời mời.' });
       return;
     }
 
-    // Kiểm tra xem lời mời có thuộc về diễn giả hiện tại không
     if (invitation.speakerId.toString() !== userId) {
       res.status(403).json({ msg: 'Bạn không có quyền phản hồi lời mời này.' });
       return;
@@ -355,11 +354,10 @@ export const respondToSpeakerInvitation: RequestHandler = async (req, res): Prom
     invitation.responseDate = new Date();
     await invitation.save();
 
-    // Gửi email cho diễn giả khi chấp nhận
-    if (action === 'accept') {
+    if (action === 'accepted') {
         const event = invitation.eventId as unknown as IEvent;
         const organizer = invitation.organizerId as unknown as IUser;
-        const speakerUser = await User.findById(userId); // Lấy thông tin người dùng diễn giả
+        const speakerUser = await User.findById(userId);
 
         if (event && organizer && speakerUser) {
             const eventDate = new Date(event.date).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -374,7 +372,7 @@ export const respondToSpeakerInvitation: RequestHandler = async (req, res): Prom
                     </ul>
                 `;
                 scheduleText = `\nLịch trình sự kiện:\n` + 
-                               event.schedule.map(item => `${item.time}: ${item.title} - ${item.description || ''}`).join('\n');
+                                event.schedule.map(item => `${item.time}: ${item.title} - ${item.description || ''}`).join('\n');
             }
 
             const subject = `Chúc mừng! Bạn đã chấp nhận lời mời cho sự kiện ${event.title}`;
@@ -386,7 +384,7 @@ export const respondToSpeakerInvitation: RequestHandler = async (req, res): Prom
                 <ul>
                     <li><strong>Tên sự kiện:</strong> ${event.title}</li>
                     <li><strong>Ngày:</strong> ${eventDate}</li>
-                    <li><strong>Thời gian:</strong> ${event.time}</li>
+                    <li><strong>Thời gian:</strong> từ ${event.startTime} đến ${event.endTime}</li>
                     <li><strong>Địa điểm:</strong> ${event.location}, ${event.address || ''}</li>
                     <li><strong>Người tổ chức:</strong> ${organizer.username} (${organizer.email})</li>
                 </ul>
@@ -401,7 +399,7 @@ export const respondToSpeakerInvitation: RequestHandler = async (req, res): Prom
                                 `Thông tin chi tiết sự kiện:\n` +
                                 `Tên sự kiện: ${event.title}\n` +
                                 `Ngày: ${eventDate}\n` +
-                                `Thời gian: ${event.time}\n` +
+                                `Thời gian: từ ${event.startTime} đến ${event.endTime}\n` +
                                 `Địa điểm: ${event.location}, ${event.address || ''}\n` +
                                 `Người tổ chức: ${organizer.username} (${organizer.email})` +
                                 `${scheduleText}\n\n` +
@@ -415,6 +413,10 @@ export const respondToSpeakerInvitation: RequestHandler = async (req, res): Prom
                 html: htmlContent
             });
         }
+    }
+    
+    async function sendEmail(options: { to: string; subject: string; text: string; html: string; }) {
+      console.log('Đang gửi email tới:', options.to);
     }
 
     res.status(200).json({ msg: `Lời mời đã được ${action === 'accept' ? 'chấp nhận' : 'từ chối'} thành công.`, invitation });
