@@ -12,16 +12,25 @@ import { Textarea } from '@/components/ui/textarea';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, X, Mail, CheckCircle, XCircle } from "lucide-react"; // Thêm Mail, CheckCircle, XCircle icons
+import { Plus, X, Mail, CheckCircle, XCircle, BarChart, Ticket, TicketSlash } from "lucide-react"; 
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs component
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import EventCard, { EventCardProps } from '@/components/home/EventCard';
 import EventStatisticsCard from '@/components/events/EventStatisticsCard';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-// Interface cho Lời mời diễn giả
+interface EventStatisticsData {
+    totalSoldTickets: number;
+    checkedInTickets: number;
+    noShowTickets: number;
+}
+
+interface MyEvent extends EventCardProps {
+    stats?: EventStatisticsData;
+}
+
 interface SpeakerInvitation {
   _id: string;
   eventId: {
@@ -45,14 +54,10 @@ interface SpeakerInvitation {
   responseDate?: string;
   message?: string;
 }
-
-// Schema cho cập nhật profile
 const profileSchema = z.object({
   username: z.string().min(3, "Tên người dùng phải có ít nhất 3 ký tự").optional().or(z.literal('')),
   email: z.string().email("Email không hợp lệ").optional().or(z.literal('')),
 });
-
-// Schema cho đổi mật khẩu
 const passwordSchema = z.object({
   currentPassword: z.string().min(6, "Mật khẩu hiện tại phải có ít nhất 6 ký tự"),
   newPassword: z.string().min(6, "Mật khẩu mới phải có ít nhất 6 ký tự"),
@@ -61,15 +66,11 @@ const passwordSchema = z.object({
   message: "Mật khẩu mới và xác nhận mật khẩu không khớp",
   path: ["confirmNewPassword"],
 });
-
-// Định nghĩa schema cho form đăng ký diễn giả
 const speakerRequestSchema = z.object({
   speakerBio: z.string().min(50, "Tiểu sử phải có ít nhất 50 ký tự.").max(500, "Tiểu sử không được vượt quá 500 ký tự."),
   speakerTopics: z.array(z.string().min(2, "Chủ đề không được trống")).min(1, "Vui lòng thêm ít nhất một chủ đề."),
   speakerImage: z.string().url("Vui lòng nhập một URL hình ảnh hợp lệ.").optional().or(z.literal('')),
 });
-
-// Định nghĩa interface cho User từ API backend, bao gồm các trường diễn giả mới
 interface UserProfile {
   _id: string;
   username: string;
@@ -87,13 +88,13 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const { userId } = useParams<{ userId: string }>();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [myEvents, setMyEvents] = useState<EventCardProps[]>([]);
-  const [speakerInvitations, setSpeakerInvitations] = useState<SpeakerInvitation[]>([]); // State cho lời mời diễn giả
+  const [myEvents, setMyEvents] = useState<MyEvent[]>([]);
+  const [speakerInvitations, setSpeakerInvitations] = useState<SpeakerInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSpeakerRequestSubmitting, setIsSpeakerRequestSubmitting] = useState(false);
   const [newTopic, setNewTopic] = useState("");
-  const [activeTab, setActiveTab] = useState("profile"); // State để quản lý tab hiện tại
+  const [activeTab, setActiveTab] = useState("profile");
 
   const currentLoggedUser = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null;
   const currentUserId = currentLoggedUser ? currentLoggedUser._id : null;
@@ -123,10 +124,9 @@ const ProfilePage = () => {
     },
   });
 
-  // Hàm fetch lời mời diễn giả
   const fetchSpeakerInvitations = async () => {
-    if (!isMyProfile || !token || userProfile?.speakerStatus !== 'approved') { // Chỉ fetch nếu là profile của mình và đã là diễn giả được duyệt
-        setSpeakerInvitations([]); // Đảm bảo làm rỗng nếu không đủ điều kiện
+    if (!isMyProfile || !token || userProfile?.speakerStatus !== 'approved') {
+        setSpeakerInvitations([]);
         return;
     }
     try {
@@ -185,30 +185,50 @@ const ProfilePage = () => {
             }
 
             const eventsResponse = await axios.get(`${API_BASE_URL}/events/my-events`, { headers: { 'x-auth-token': token! } });
-            const formattedEvents = eventsResponse.data.map((event: any) => ({
-                id: event._id,
-                title: event.title,
-                date: new Date(event.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }),
-                location: event.location,
-                image: event.image,
-                price: event.price,
-                category: event.category,
-                organizer: event.organizer.name
-            }));
-            setMyEvents(formattedEvents);
+            const rawEvents = eventsResponse.data;
 
-            // Fetch lời mời diễn giả nếu người dùng là diễn giả được duyệt
-            if (profileResponse.data.speakerStatus === 'approved') {
-                fetchSpeakerInvitations(); // Gọi hàm fetch riêng
+            if (rawEvents && rawEvents.length > 0) {
+                const statsPromises = rawEvents.map((event: any) =>
+                    axios.get(`${API_BASE_URL}/events/${event._id}/statistics`, { headers: { 'x-auth-token': token! } })
+                );
+
+                const statsResults = await Promise.allSettled(statsPromises);
+                const statsMap = new Map<string, EventStatisticsData>();
+                statsResults.forEach(result => {
+                    if (result.status === 'fulfilled' && result.value.data) {
+                        statsMap.set(result.value.data.eventId, result.value.data);
+                    }
+                });
+
+               const combinedEvents = rawEvents.map((event: any): MyEvent => ({
+                    id: event._id,
+                    title: event.title,
+                    date: new Date(event.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' }),
+                    location: event.location,
+                    image: event.image,
+                    price: event.price,
+                    category: event.category,
+                    organizer: event.organizer.name,
+                    startTime: event.startTime, 
+                    endTime: event.endTime,    
+                    stats: statsMap.get(event._id)
+                }));
+                setMyEvents(combinedEvents);
             } else {
-                setSpeakerInvitations([]); // Đảm bảo rỗng nếu không phải diễn giả
+                setMyEvents([]);
+            }
+
+            if (profileResponse.data.speakerStatus === 'approved') {
+                fetchSpeakerInvitations();
+            } else {
+                setSpeakerInvitations([]);
             }
 
         } else {
             profileForm.reset();
             speakerForm.reset();
             setMyEvents([]);
-            setSpeakerInvitations([]); // Cũng làm rỗng nếu xem profile người khác
+            setSpeakerInvitations([]);
         }
 
       } catch (err: any) {
@@ -234,15 +254,13 @@ const ProfilePage = () => {
     };
 
     fetchData();
-  }, [navigate, userId, isMyProfile, profileForm, speakerForm, token, currentUserRole, currentUserId, userProfile?.speakerStatus]); // Thêm userProfile.speakerStatus vào dependencies
+  }, [navigate, userId, isMyProfile, profileForm, speakerForm, token, currentUserRole, currentUserId]);
 
-    // Re-fetch invitations if the activeTab changes to 'speaker-invitations' and user is approved speaker
     useEffect(() => {
         if (activeTab === 'speaker-invitations' && isMyProfile && userProfile?.speakerStatus === 'approved') {
             fetchSpeakerInvitations();
         }
     }, [activeTab, isMyProfile, userProfile?.speakerStatus]);
-
 
   const onProfileSubmit = async (values: z.infer<typeof profileSchema>) => {
     try {
@@ -356,8 +374,6 @@ const ProfilePage = () => {
     }
 };
 
-
-
   if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải hồ sơ...</div>;
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
   if (!userProfile) return <div className="min-h-screen flex items-center justify-center text-gray-500">Không tìm thấy hồ sơ người dùng.</div>;
@@ -366,6 +382,8 @@ const ProfilePage = () => {
   const isSpeakerPending = userProfile.speakerStatus === 'pending';
   const isSpeakerRejected = userProfile.speakerStatus === 'rejected';
 
+  const eventsWithStats = myEvents.filter(e => e.stats && e.stats.totalSoldTickets > 0);
+  const eventsWithoutStats = myEvents.filter(e => !e.stats || e.stats.totalSoldTickets === 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -373,7 +391,6 @@ const ProfilePage = () => {
       <main className="flex-grow container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Hồ sơ {isMyProfile ? 'cá nhân' : userProfile.username}</h1>
 
-        {/* Thông tin cơ bản của người dùng (luôn hiển thị) */}
         <div className="mb-8 p-6 border rounded-lg bg-gray-50">
             <h2 className="text-2xl font-semibold mb-4">Thông tin {isMyProfile ? 'cá nhân của bạn' : 'người dùng'}</h2>
             <p className="text-lg mb-2"><span className="font-medium">Tên người dùng:</span> {userProfile.username}</p>
@@ -381,22 +398,24 @@ const ProfilePage = () => {
             <p className="text-lg"><span className="font-medium">Vai trò:</span> {userProfile.role === 'admin' ? 'Quản trị viên' : 'Người dùng'}</p>
         </div>
 
-        {/* Tabs for Profile, My Events, Speaker Invitations */}
         {isMyProfile && (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-3"> {/* Thay đổi số cột nếu cần */}
+                <TabsList className="grid w-full grid-cols-3 md:grid-cols-4">
                     <TabsTrigger value="profile">Hồ sơ</TabsTrigger>
                     <TabsTrigger value="my-events">Sự kiện của tôi</TabsTrigger>
-                    {isSpeakerApproved && ( // Chỉ hiển thị tab này nếu đã là diễn giả được duyệt
+                    <TabsTrigger value="my-events-stats">
+                        <BarChart className="mr-2 h-4 w-4" />
+                        Thống kê
+                    </TabsTrigger>
+                    {isSpeakerApproved && (
                         <TabsTrigger value="speaker-invitations">
                             Lời mời Diễn giả <Mail className="ml-2 h-4 w-4" />
                         </TabsTrigger>
                     )}
                 </TabsList>
 
-                {/* Tab Content: Hồ sơ cá nhân */}
                 <TabsContent value="profile" className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
-                    <Card>
+                     <Card>
                         <CardHeader>
                             <CardTitle>Thông tin hồ sơ</CardTitle>
                             <CardDescription>Cập nhật tên người dùng và địa chỉ email của bạn.</CardDescription>
@@ -493,9 +512,8 @@ const ProfilePage = () => {
                         </CardContent>
                     </Card>
 
-                    {/* Speaker Request Form */}
                     {isMyProfile && (!isSpeakerApproved && !isSpeakerPending) && (
-                        <Card className="lg:col-span-2"> {/* Thêm Card để bọc form đăng ký diễn giả */}
+                        <Card className="lg:col-span-2">
                             <CardHeader>
                                 <CardTitle>Đăng ký làm diễn giả</CardTitle>
                                 <CardDescription>Gửi yêu cầu để trở thành diễn giả và chia sẻ kiến thức của bạn.</CardDescription>
@@ -631,19 +649,14 @@ const ProfilePage = () => {
                             </CardContent>
                         </Card>
                     )}
-
                 </TabsContent>
 
-                {/* Tab Content: Sự kiện của tôi */}
                 <TabsContent value="my-events" className="mt-4">
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Các sự kiện tôi đã tạo</h2>
                     {myEvents.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {myEvents.map((event) => (
-                                <div key={event.id} className="flex flex-col gap-4">
-                                    <EventCard {...event} />
-                                    <EventStatisticsCard eventId={event.id} eventTitle={event.title} />
-                                </div>
+                                <EventCard key={event.id} {...event} />
                             ))}
                         </div>
                     ) : (
@@ -656,7 +669,43 @@ const ProfilePage = () => {
                     )}
                 </TabsContent>
 
-                {/* Tab Content: Lời mời Diễn giả */}
+                <TabsContent value="my-events-stats" className="mt-4">
+                    <Tabs defaultValue="with-data" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="with-data">
+                                <Ticket className="mr-2 h-4 w-4" /> Có dữ liệu
+                            </TabsTrigger>
+                            <TabsTrigger value="without-data">
+                                <TicketSlash className="mr-2 h-4 w-4" /> Chưa có dữ liệu
+                            </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="with-data" className="mt-4">
+                             <h3 className="text-xl font-semibold text-gray-800 mb-4">Sự kiện đã bán vé</h3>
+                             {eventsWithStats.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                    {eventsWithStats.map((event) => (
+                                        <EventStatisticsCard key={event.id} eventId={event.id} eventTitle={event.title} />
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-center text-gray-500 py-6">Không có sự kiện nào có dữ liệu thống kê.</p>
+                            )}
+                        </TabsContent>
+                        <TabsContent value="without-data" className="mt-4">
+                             <h3 className="text-xl font-semibold text-gray-800 mb-4">Sự kiện chưa bán được vé</h3>
+                             {eventsWithoutStats.length > 0 ? (
+                                <ul className="space-y-2 list-disc list-inside">
+                                    {eventsWithoutStats.map((event) => (
+                                        <li key={event.id}>{event.title}</li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-center text-gray-500 py-6">Tất cả sự kiện của bạn đều đã có người tham gia!</p>
+                            )}
+                        </TabsContent>
+                    </Tabs>
+                </TabsContent>
+
                 {isSpeakerApproved && (
                     <TabsContent value="speaker-invitations" className="mt-4">
                         <h2 className="text-2xl font-bold text-gray-900 mb-6">Lời mời làm Diễn giả</h2>
@@ -699,7 +748,7 @@ const ProfilePage = () => {
                                                     <div className="mt-2">
                                                         <h5 className="text-xs font-semibold">Lịch trình nổi bật:</h5>
                                                         <ul className="list-disc list-inside text-xs ml-2">
-                                                            {invitation.eventId.schedule.slice(0, 2).map((item, idx) => ( // Chỉ hiển thị 2 mục đầu
+                                                            {invitation.eventId.schedule.slice(0, 2).map((item, idx) => (
                                                                 <li key={idx}><strong>{item.time}</strong>: {item.title}</li>
                                                             ))}
                                                             {invitation.eventId.schedule.length > 2 && (

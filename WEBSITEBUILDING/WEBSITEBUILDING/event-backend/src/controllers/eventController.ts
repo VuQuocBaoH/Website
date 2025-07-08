@@ -982,6 +982,41 @@ export const getEventStatistics: RequestHandler = async (req, res): Promise<void
     }
 };
 
+export const getAllEventStatistics: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const events = await Event.find().select('_id');
+
+    if (!events) {
+      res.status(404).json({ msg: 'Không tìm thấy sự kiện nào.' });
+      return;
+    }
+
+    const allStats = await Promise.all(
+      events.map(async (event) => {
+        const eventId = event._id as mongoose.Types.ObjectId;
+
+        const totalTickets = await Ticket.countDocuments({ eventId: eventId });
+        const checkedInCount = await Ticket.countDocuments({
+          eventId: eventId,
+          status: 'checked-in',
+        });
+
+        return {
+          eventId: eventId.toString(), 
+          totalTickets,
+          checkedInCount,
+        };
+      })
+    );
+
+    res.json(allStats);
+
+  } catch (err: any) {
+    console.error('Lỗi khi lấy tất cả thống kê sự kiện:', err.message);
+    res.status(500).send('Lỗi máy chủ');
+  }
+};
+
 // @route   GET /api/speakers/approved
 // @desc    Get list of all approved speakers
 // @access  Private (Any authenticated user can see approved speakers to invite)

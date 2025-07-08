@@ -70,7 +70,7 @@ const EventStatisticsCard: React.FC<EventStatisticsCardProps> = ({ eventId, even
       { Danh_muc: 'Tổng số vé đã bán', So_luong: statistics.totalSoldTickets },
       { Danh_muc: 'Số vé đã Check-in', So_luong: statistics.checkedInTickets },
       { Danh_muc: 'Số vé vắng mặt', So_luong: statistics.noShowTickets },
-      // { Danh_muc: 'Số vé đã Check-out', So_luong: statistics.checkedOutTickets }, // Chỉ thêm nếu có
+      // { Danh_muc: 'Số vé đã Check-out', So_luong: statistics.checkedOutTickets }, 
     ];
 
     const worksheet = XLSX.utils.json_to_sheet(dataForExcel);
@@ -128,9 +128,9 @@ const EventStatisticsCard: React.FC<EventStatisticsCardProps> = ({ eventId, even
   const data = [
     { name: 'Vé đã Check-in', value: statistics.checkedInTickets },
     { name: 'Vé vắng mặt', value: statistics.noShowTickets },
-    // { name: 'Vé đã Check-out', value: statistics.checkedOutTickets }, // Chỉ thêm nếu có
-    { name: 'Tổng số vé bán ra', value: statistics.totalSoldTickets }, // Hiển thị tổng số vé đã bán ở cuối cùng
-  ].filter(item => item.value > 0); // Lọc bỏ các mục có giá trị 0 để biểu đồ không bị rối
+    // { name: 'Vé đã Check-out', value: statistics.checkedOutTickets }, 
+    { name: 'Tổng số vé bán ra', value: statistics.totalSoldTickets },
+  ].filter(item => item.value > 0); 
 
   return (
     <Card className={isDetailedView ? "w-full" : ""}>

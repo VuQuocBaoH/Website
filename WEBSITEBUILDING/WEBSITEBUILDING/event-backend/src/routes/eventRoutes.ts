@@ -18,6 +18,7 @@ import {
   checkInTicket,
   checkOutTicket,
   getEventStatistics,
+  getAllEventStatistics,
   getApprovedSpeakers, 
   inviteSpeaker,
   getEventInvitations
@@ -38,6 +39,7 @@ router.get('/organizer/:organizerId', getEventsByOrganizer);
 router.get('/:id/tickets', authMiddleware, getEventTickets);
 
 router.get('/:eventId/statistics', authMiddleware, getEventStatistics); 
+router.get('/statistics/all', authMiddleware, getAllEventStatistics); 
 
 
 router.get('/speakers/approved', authMiddleware, getApprovedSpeakers); 

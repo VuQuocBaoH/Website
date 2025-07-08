@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Star, PlusCircle, Eye, Check, X, BarChart, Tag } from 'lucide-react'; // Đã xóa Clock icon
+import { Pencil, Trash2, Star, PlusCircle, Eye, Check, X, BarChart, Tag, TicketSlash } from 'lucide-react'; 
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +36,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
+interface EventStatistics {
+  totalTickets: number;
+  checkedInCount: number;
+}
+
 interface AdminEvent {
   _id: string;
   title: string;
@@ -45,6 +50,7 @@ interface AdminEvent {
   isFeatured: boolean;
   // isUpcoming: boolean; // Đã xóa
   organizer: { name: string };
+  stats?: EventStatistics;
 }
 
 interface SpeakerRequest {
@@ -115,13 +121,20 @@ const AdminDashboard = () => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error("Token not found");
       
-      const [eventsRes, speakersRes, discountsRes] = await Promise.all([
+      const [eventsRes, speakersRes, discountsRes, statsRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/events`, { headers: { 'x-auth-token': token } }),
         axios.get(`${API_BASE_URL}/users/speaker-requests`, { headers: { 'x-auth-token': token } }),
-        axios.get(`${API_BASE_URL}/discounts`, { headers: { 'x-auth-token': token } })
+        axios.get(`${API_BASE_URL}/discounts`, { headers: { 'x-auth-token': token } }),
+        axios.get(`${API_BASE_URL}/events/statistics/all`, { headers: { 'x-auth-token': token } })
       ]);
 
-      setEvents(eventsRes.data);
+      const statisticsMap = new Map(statsRes.data.map((stat: any) => [stat.eventId, stat]));
+      const eventsWithStats = eventsRes.data.map((event: AdminEvent) => ({
+        ...event,
+        stats: statisticsMap.get(event._id)
+      }));
+
+      setEvents(eventsWithStats);
       setPendingSpeakerRequests(speakersRes.data);
       setDiscountCodes(discountsRes.data);
 
@@ -263,6 +276,9 @@ const AdminDashboard = () => {
   if (loading) return <div className="min-h-screen flex items-center justify-center">Đang tải dữ liệu bảng điều khiển...</div>;
   if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
 
+  const eventsWithStats = events.filter(event => event.stats && event.stats.totalTickets > 0);
+  const eventsWithoutStats = events.filter(event => !event.stats || event.stats.totalTickets === 0);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -275,14 +291,17 @@ const AdminDashboard = () => {
         </div>
 
         <Tabs defaultValue="event-management" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="event-management">Quản lý Sự kiện</TabsTrigger>
             <TabsTrigger value="speaker-requests">Yêu cầu Diễn giả</TabsTrigger>
             <TabsTrigger value="discount-management">
                 <Tag className="h-4 w-4 mr-2" /> Quản lý Mã giảm giá
             </TabsTrigger>
             <TabsTrigger value="event-statistics">
-                <BarChart className="h-4 w-4 mr-2" /> Thống kê
+                <BarChart className="h-4 w-4 mr-2" /> Thống kê Chi tiết
+            </TabsTrigger>
+            <TabsTrigger value="unsold-events">
+                <TicketSlash className="h-4 w-4 mr-2" /> Sự kiện chưa bán vé
             </TabsTrigger>
           </TabsList>
 
@@ -301,9 +320,7 @@ const AdminDashboard = () => {
                       <TableHead>Thể loại</TableHead>
                       <TableHead>Người tổ chức</TableHead>
                       <TableHead className="text-center">Nổi bật</TableHead>
-                      {/* START CHANGE: Đã xóa cột "Sắp tới" */}
                       <TableHead className="text-center">Hành động</TableHead>
-                      {/* END CHANGE */}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -324,8 +341,7 @@ const AdminDashboard = () => {
                             {event.isFeatured ? <Star className="h-4 w-4 fill-current text-yellow-400" /> : <Star className="h-4 w-4" />}
                           </Button>
                         </TableCell>
-                        {/* START CHANGE: Đã xóa ô và nút "Sắp tới" */}
-                        {/* END CHANGE */}
+                      
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center space-x-2">
                             <Button variant="outline" size="sm" onClick={() => handleEdit(event._id)}>
@@ -527,20 +543,51 @@ const AdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="event-statistics">
-            <h2 className="text-2xl font-bold text-gray-900 mt-6 mb-4">Thống kê Tổng quan Sự kiện</h2>
-            {events.length === 0 ? (
-                <p className="text-center text-gray-600">Không có sự kiện nào để hiển thị thống kê.</p>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {events.map((event) => (
-                        <EventStatisticsCard
-                            key={event._id}
-                            eventId={event._id}
-                            eventTitle={event.title}
-                            isDetailedView={false}
-                        />
-                    ))}
+              <h2 className="text-2xl font-bold text-gray-900 mt-6 mb-4">Thống kê Chi tiết các Sự kiện</h2>
+              {eventsWithStats.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {eventsWithStats.map((event) => (
+                          <EventStatisticsCard
+                              key={event._id}
+                              eventId={event._id}
+                              eventTitle={event.title}
+                          />
+                      ))}
+                  </div>
+              ) : (
+                  <p className="text-center text-gray-600 py-8">Không có sự kiện nào có dữ liệu thống kê để hiển thị.</p>
+              )}
+          </TabsContent>
+
+          <TabsContent value="unsold-events">
+            <h2 className="text-2xl font-bold text-gray-900 mt-6 mb-4">Danh sách sự kiện chưa bán vé</h2>
+             {eventsWithoutStats.length > 0 ? (
+                <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tên sự kiện</TableHead>
+                        <TableHead>Ngày diễn ra</TableHead>
+                        <TableHead>Người tổ chức</TableHead>
+                        <TableHead className="text-center">Tổng vé đã bán</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {eventsWithoutStats.map((event) => (
+                        <TableRow key={event._id}>
+                          <TableCell className="font-medium">{event.title}</TableCell>
+                          <TableCell>{new Date(event.date).toLocaleDateString('vi-VN')}</TableCell>
+                          <TableCell>{event.organizer.name}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="destructive">0</Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
+            ) : (
+                <p className="text-center text-gray-600 py-8">Tất cả các sự kiện đều đã bán được vé.</p>
             )}
           </TabsContent>
         </Tabs>
