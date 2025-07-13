@@ -496,7 +496,19 @@ const AdminDashboard = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {discountCodes.map((d) => (
+                          {discountCodes.map((d) => {
+                            const isDateExpired = d.expirationDate && new Date(d.expirationDate).setHours(23, 59, 59, 999) < Date.now();
+                            
+                            const isTrulyActive = d.isActive && !isDateExpired;
+
+                            let statusText = 'Tắt';
+                            if (isTrulyActive) {
+                              statusText = 'Hoạt động';
+                            } else if (isDateExpired) {
+                              statusText = 'Hết hạn';
+                            }
+
+                            return (
                               <TableRow key={d._id}>
                                 <TableCell className="font-medium">{d.code}</TableCell>
                                 <TableCell>
@@ -508,15 +520,15 @@ const AdminDashboard = () => {
                                 <TableCell>
                                   {d.timesUsed} / {d.usageLimit || '∞'}
                                 </TableCell>
-                                 <TableCell>
-                                  <Badge variant={d.isActive ? 'default' : 'destructive'} className={d.isActive ? 'bg-green-500' : ''}>
-                                    {d.isActive ? 'Hoạt động' : 'Tắt'}
+                                <TableCell>
+                                  <Badge variant={isTrulyActive ? 'default' : 'destructive'} className={isTrulyActive ? 'bg-green-500' : ''}>
+                                    {statusText}
                                   </Badge>
                                 </TableCell>
                                 <TableCell className="text-center">
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                       <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4" /></Button>
+                                        <Button variant="destructive" size="sm"><Trash2 className="h-4 w-4" /></Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                       <AlertDialogHeader>
@@ -533,8 +545,9 @@ const AdminDashboard = () => {
                                   </AlertDialog>
                                 </TableCell>
                               </TableRow>
-                            ))}
-                          </TableBody>
+                            );
+                          })}
+                        </TableBody>
                         </Table>
                     </div>
                  )}

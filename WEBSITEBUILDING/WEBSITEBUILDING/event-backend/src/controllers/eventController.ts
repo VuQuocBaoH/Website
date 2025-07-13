@@ -166,6 +166,16 @@ export const updateEvent: RequestHandler = async (req, res): Promise<void> => {
       return;
     }
 
+    const now = new Date();
+    const [endHours, endMinutes] = event.endTime.split(':').map(Number);
+    const eventEndDateTime = new Date(event.date);
+    eventEndDateTime.setHours(endHours, endMinutes, 0, 0);
+
+    if (eventEndDateTime < now) {
+        res.status(403).json({ msg: 'Không thể chỉnh sửa sự kiện đã kết thúc.' });
+        return;
+    }
+
     const {
       title, date, startTime, endTime, location, address, image, price, isFree, category,
       description, longDescription, status, schedule,
@@ -453,9 +463,16 @@ export const getEvents: RequestHandler = async (req, res): Promise<void> => {
 // @desc    Get featured events
 export const getFeaturedEvents: RequestHandler = async (req, res): Promise<void> => {
   try {
-    const featuredEvents = await Event.find({ isFeatured: true, date: { $gte: new Date() } })
+    // Lấy ngày hôm nay
+    const today = new Date();
+    // Thiết lập thời gian về đầu ngày (00:00:00)
+    today.setHours(0, 0, 0, 0);
+
+    // Sử dụng biến 'today' trong câu truy vấn
+    const featuredEvents = await Event.find({ isFeatured: true, date: { $gte: today } })
       .populate('tickets')
-      .sort({ date: 1 }); // Removed .limit(4)
+      .sort({ date: 1 });
+      
     res.json(featuredEvents);
   } catch (err: any) {
     console.error(err.message);

@@ -515,7 +515,7 @@ const EventAttendeesPage = () => {
                       <TableCell>{ticket.checkInTime ? new Date(ticket.checkInTime).toLocaleString('vi-VN') : 'N/A'}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="outline" size="sm" onClick={() => handleCheckOut(ticket.ticketCode)}>
-                          Check-out
+                          undo
                         </Button>
                       </TableCell>
                     </TableRow>

@@ -1,0 +1,38 @@
+{
+  "name": "EventWizard",
+  "short_name": "EventWizard",
+  "description": "Nơi tìm kiếm và tạo các sự kiện thú vị của riêng bạn",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff5722",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ], 
+  "screenshots": [
+  {
+    "src": "/screenshot-desktop.png",
+    "sizes": "1280x720",
+    "type": "image/png",
+    "form_factor": "wide",
+    "label": "Giao diện trên máy tính"
+  },
+  {
+    "src": "/screenshot-mobile.png",
+    "sizes": "540x720",
+    "type": "image/png",
+    "form_factor": "narrow",
+    "label": "Giao diện trên di động"
+  }
+  ]
+}
